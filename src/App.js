@@ -88,6 +88,23 @@ const calculateRegulationFrequency = (category, count, standard = 'rule4') => {
   return { nurse, doctor, desc };
 };
 
+// --- Helper: Deep Sanitize Object for Firebase ---
+const sanitizeData = (data) => {
+  if (data === undefined) return null;
+  if (data === null) return null;
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeData(item));
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const newData = {};
+    Object.keys(data).forEach(key => {
+      newData[key] = sanitizeData(data[key]);
+    });
+    return newData;
+  }
+  return data;
+};
+
 // --- Components ---
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
@@ -493,17 +510,16 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
         let newVersion = log.version;
         if (initialData && initialData.status === 'completed') newVersion = initialData.version + 1;
 
-        // Sanitize: Remove undefined
-        const dataToSave = {
+        // Deep sanitize to remove undefined
+        const dataToSave = sanitizeData({
             ...log,
             clientName, 
             status: status, 
             version: newVersion,
             hours: ((new Date(`2000/01/01 ${log.endTime}`) - new Date(`2000/01/01 ${log.startTime}`)) / 36e5).toFixed(1),
             updatedAt: serverTimestamp()
-        };
-        // Remove bad keys
-        Object.keys(dataToSave).forEach(key => dataToSave[key] === undefined && delete dataToSave[key]);
+        });
+
         if (!initialData) dataToSave.createdAt = serverTimestamp();
 
         await onSaveLog(dataToSave, initialData?.id);
@@ -583,8 +599,8 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
       <div className="border p-4 rounded-lg bg-gray-50">
         <h3 className="font-bold border-b pb-2 mb-3">二、作業場所與勞動條件概況</h3>
         <div className="space-y-2 mb-3">
-            <div><label className="text-sm">工作流程(製程)</label><input className="w-full border p-2 rounded" value={log.process} onChange={e=>setLog({...log, process: e.target.value})}/></div>
-            <div><label className="text-sm">工作型態與時間</label><input className="w-full border p-2 rounded" value={log.work_type_time} onChange={e=>setLog({...log, work_type_time: e.target.value})}/></div>
+            <div><label className="text-sm">工作流程(製程)</label><textarea className="w-full border p-2 rounded h-16" value={log.process} onChange={e=>setLog({...log, process: e.target.value})}/></div>
+            <div><label className="text-sm">工作型態與時間</label><textarea className="w-full border p-2 rounded h-16" value={log.work_type_time} onChange={e=>setLog({...log, work_type_time: e.target.value})}/></div>
         </div>
         <div className="bg-white p-3 rounded border">
             <h4 className="text-sm font-bold mb-2">初步危害辨識表</h4>
@@ -718,7 +734,7 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
               {log.show_tracking_4 && (
                 <div className="pl-6 text-xs bg-gray-50 p-2 rounded">
                    <div className="flex items-center justify-between mb-1"><span>危害辨識及評估</span><div><label><input type="radio" checked={log.maternal_hazard_check} onChange={()=>setLog({...log, maternal_hazard_check:true})}/> 已完成</label> <label><input type="radio" checked={!log.maternal_hazard_check} onChange={()=>setLog({...log, maternal_hazard_check:false})}/> 未完成</label></div></div>
-                   <div className="grid grid-cols-2 gap-1 mb-1">
+                   <div className="grid grid-cols-1 gap-1 mb-1">
                       <div>妊娠中/收案人數: <input className="border w-10" value={log.mat_pregnant} onChange={e=>setLog({...log, mat_pregnant:e.target.value})}/></div>
                       <div>分娩後/收案人數: <input className="border w-10" value={log.mat_postpartum} onChange={e=>setLog({...log, mat_postpartum:e.target.value})}/></div>
                       <div>哺乳中/收案人數: <input className="border w-10" value={log.mat_breastfeeding} onChange={e=>setLog({...log, mat_breastfeeding:e.target.value})}/></div>
@@ -889,7 +905,6 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                    else if(k==='check_other') label = '其他經中央主管機關指定公告者';
                    else label = '...'; 
                    
-                   // Complete Mapping for Print
                    if(k==='check_research') label='職業衛生或職業健康之相關研究報告及傷害、疾病紀錄之保存';
                    if(k==='check_edu') label='勞工之健康教育、衛生指導、身心健康保護、健康促進等措施之策劃及實施';
                    if(k==='check_report') label='定期向雇主報告及勞工健康服務之建議';
@@ -992,11 +1007,11 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                  <div className="border border-black p-1 mb-2">
                      <strong>(4) 母性健康保護: </strong> 
                      危害評估({selectedLog.maternal_hazard_check?'已完成':'未完成'}) / 
-                     妊娠中{selectedLog.mat_pregnant}人 / 
-                     分娩後{selectedLog.mat_postpartum}人 /
-                     哺乳中{selectedLog.mat_breastfeeding}人 /
-                     醫師面談(需{selectedLog.mat_doc_need}/已{selectedLog.mat_doc_done}/未{selectedLog.mat_doc_not}) / 
-                     護理指導(需{selectedLog.mat_nurse_need}/已{selectedLog.mat_nurse_done}/未{selectedLog.mat_nurse_not})
+                     妊娠中 {selectedLog.mat_pregnant} 人 / 
+                     分娩後 {selectedLog.mat_postpartum} 人 /
+                     哺乳中 {selectedLog.mat_breastfeeding} 人 /
+                     醫師面談 (需{selectedLog.mat_doc_need}/已{selectedLog.mat_doc_done}/未{selectedLog.mat_doc_not}) / 
+                     護理指導 (需{selectedLog.mat_nurse_need}/已{selectedLog.mat_nurse_done}/未{selectedLog.mat_nurse_not})
                  </div>
              )}
              {selectedLog.show_tracking_5 && (
