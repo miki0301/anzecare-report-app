@@ -384,11 +384,17 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
       const history = logs.filter(l => l.clientId === log.clientId);
       if (history.length > 0) {
         const lastReport = history.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+        
+        // Remove undefined/null/bad values from history to avoid overwrites causing bugs
+        // But specifically, ensure we DONT bring over old ID
+        const { id, createdAt, updatedAt, ...cleanHistory } = lastReport;
+
         setLog(prev => ({
-          ...prev, ...lastReport, 
+          ...prev, 
+          ...cleanHistory, 
           date: new Date().toISOString().split('T')[0], startTime: '14:00', endTime: '17:00',
-          status: 'draft', version: 1, id: undefined, createdAt: undefined, updatedAt: undefined,
-          signatures: lastReport.signatures || prev.signatures
+          status: 'draft', version: 1, 
+          signatures: cleanHistory.signatures || prev.signatures
         }));
         setAutoFilled(true);
       } else {
@@ -479,27 +485,38 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
   const addOnsiteSignature = () => setLog(prev => ({...prev, signatures: { ...prev.signatures, onsite: [...prev.signatures.onsite, { id: Date.now(), title: '自訂職稱', name: '' }] }}));
   const removeOnsiteSignature = (index) => setLog(prev => { const newOnsiteSigs = [...prev.signatures.onsite]; newOnsiteSigs.splice(index, 1); return { ...prev, signatures: { ...prev.signatures, onsite: newOnsiteSigs } }; });
 
-  const handleSave = (status) => {
-    if (!log.clientId) { alert("請選擇客戶"); return; }
-    const clientName = clients.find(c => c.id === log.clientId)?.name;
-    const nurseSig = log.signatures.onsite.find(s => s.title.includes('護理'));
-    const docSig = log.signatures.onsite.find(s => s.title.includes('醫師'));
-    const nurseName = nurseSig ? nurseSig.name : "";
-    const doctorName = docSig ? docSig.name : "";
-    let newVersion = log.version;
-    if (initialData && initialData.status === 'completed') newVersion = initialData.version + 1;
+  const handleSave = async (status) => {
+    try {
+        if (!log.clientId) { alert("請選擇客戶"); return; }
+        const clientName = clients.find(c => c.id === log.clientId)?.name;
+        
+        let newVersion = log.version;
+        if (initialData && initialData.status === 'completed') newVersion = initialData.version + 1;
 
-    const dataToSave = {
-        ...log,
-        clientName, nurseName, doctorName, staffName: nurseName || doctorName || "未簽名",
-        status: status, version: newVersion,
-        hours: ((new Date(`2000/01/01 ${log.endTime}`) - new Date(`2000/01/01 ${log.startTime}`)) / 36e5).toFixed(1),
-        updatedAt: serverTimestamp()
-    };
-    if (!initialData) dataToSave.createdAt = serverTimestamp();
+        // Sanitize: Remove undefined
+        const dataToSave = {
+            ...log,
+            clientName, 
+            status: status, 
+            version: newVersion,
+            hours: ((new Date(`2000/01/01 ${log.endTime}`) - new Date(`2000/01/01 ${log.startTime}`)) / 36e5).toFixed(1),
+            updatedAt: serverTimestamp()
+        };
+        // Remove bad keys
+        Object.keys(dataToSave).forEach(key => dataToSave[key] === undefined && delete dataToSave[key]);
+        if (!initialData) dataToSave.createdAt = serverTimestamp();
 
-    onSaveLog(dataToSave, initialData?.id);
-    if (!initialData) { setLog(createDefaultState()); setAutoFilled(false); }
+        await onSaveLog(dataToSave, initialData?.id);
+        
+        if (!initialData) { 
+            setLog(createDefaultState()); 
+            setAutoFilled(false); 
+        }
+        alert("儲存成功！");
+    } catch (e) {
+        console.error(e);
+        alert("儲存失敗: " + e.message);
+    }
   };
 
   const CHECKLIST_ITEMS = [
