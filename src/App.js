@@ -53,31 +53,60 @@ const appId = 'anze-care-default';
 
 // --- Utils & Logic ---
 const INDUSTRY_DATA = {
-  cat1: ["礦業及土石採取業", "製造業-紡織業", "製造業-電子零組件", "營造業", "水電燃氣業", "運輸倉儲通信業", "國防事業", "中央主管機關指定達一定規模之事業"],
-  cat2: ["農林漁牧業", "製造業-食品製造", "餐旅業", "醫療保健服務業", "批發零售業", "學術研究", "公共行政業"],
-  cat3: ["其他 (一般辦公室、金融業等)"]
+  cat1: [
+    "礦業及土石採取業", "製造業-紡織業", "製造業-木竹製品及非金屬家具", "製造業-造紙、紙製品", "製造業-化學材料", "製造業-化學品", "製造業-石油及煤製品", "製造業-橡膠製品", "製造業-塑膠製品", "製造業-水泥及水泥製品", "製造業-金屬基本工業", "製造業-金屬製品", "製造業-機械設備製造修配", "製造業-電力機械器材製造修配", "製造業-運輸工具製造修配", "製造業-電子機械器材/電池製造", "製造業-食品製造", "製造業-飲料及菸草製造", "製造業-皮革、毛皮及其製品", "製造業-電腦、電子產品及光學製品", "製造業-電子零組件", "製造業-其他非金屬礦物製品", "營造業", "水電燃氣業", "運輸、倉儲及通信業", "機械設備租賃業", "環境衛生服務業", "洗染業", "批發零售業(具顯著風險)", "其他服務業(清潔/病媒)", "公共行政業(營造/廢棄物)", "國防事業", "中央主管機關指定達一定規模之事業"
+  ],
+  cat2: [
+    "農、林、漁、牧業", "製造業-普通及特殊陶瓷", "製造業-玻璃及玻璃製品", "製造業-精密器械", "製造業-雜項工業製品", "製造業-成衣及服飾品", "製造業-印刷、出版及有關事業", "製造業-藥品製造", "製造業-其它製造業", "自來水供應業", "郵政/電信業", "餐旅業", "機械設備租賃業(事務性)", "醫療保健服務業", "修理服務業", "批發零售業(一般)", "不動產及租賃業", "運輸工具設備租賃業", "專業、科學及技術服務業", "其他服務業(保全/汽車美容)", "停車場業", "學術研究/教育訓練", "公共行政業(一般)", "工程顧問業", "休閒服務業", "動物園業"
+  ],
+  cat3: [
+    "其他 (一般辦公室、金融業、軟體業等)"
+  ]
 };
 
 const FREQ_OPTIONS = {
-  nurse: ["顧問諮詢 (未達50人)", "1次/3個月", "1次/2個月", "1次/月", "2次/月", "3次/月", "4次/月", "6次/月", "專職護理人員 (300人以上)"],
-  doctor: ["顧問諮詢 (未達50人)", "1次/年", "2次/年", "3次/年", "4次/年", "6次/年", "1次/6個月", "1次/3個月", "1次/2個月", "1次/月", "3次/月"]
+  nurse: [
+    "顧問諮詢 (未達50人)", "1次/3個月", "1次/2個月", "1次/月", "2次/月", "3次/月", "4次/月", "6次/月", "專職護理人員 (300人以上)"
+  ],
+  doctor: [
+    "顧問諮詢 (未達50人)", "1次/年", "2次/年", "3次/年", "4次/年", "6次/年", "1次/6個月", "1次/3個月", "1次/2個月", "1次/月", "3次/月", "6次/月", "9次/月", "12次/月", "15次/月", "18次/月"
+  ]
 };
 
 const calculateRegulationFrequency = (category, count, standard = 'rule4') => {
-  if (count < 50) return { nurse: "顧問諮詢 (未達50人)", doctor: "顧問諮詢 (未達50人)", desc: "未達50人門檻" };
+  if (count < 50) return { nurse: "顧問諮詢 (未達50人)", doctor: "顧問諮詢 (未達50人)", desc: "未達50人門檻，建議採顧問服務" };
+  
   let nurse = "1次/月";
   let doctor = "1次/年";
   let desc = "";
+
   if (standard === 'rule7') {
     desc = `依據附表七 (第13條)，勞工${count}人`;
     if (count >= 3000) { doctor = "1次/2個月"; nurse = "1次/月"; } 
-    else if (count >= 50) { doctor = "1次/年"; nurse = "1次/3個月"; }
+    else if (count >= 1000) { doctor = "1次/3個月"; nurse = "1次/月"; }
+    else if (count >= 300) { doctor = "1次/6個月"; nurse = "1次/2個月"; }
+    else if (count >= 50) { 
+      doctor = "1次/年"; nurse = "1次/3個月";
+      if (count < 100) desc += " (註：50-99人且未具特別危害者不適用此表)";
+    }
   } else {
     desc = `依據附表四 (第4條)，勞工${count}人，屬第${category}類事業`;
-    if (count >= 300) nurse = "專職護理人員";
-    else if (count >= 200) nurse = category === "1" ? "6次/月" : "3次/月";
+    // Nurse
+    if (count >= 300) nurse = "專職護理人員 (300人以上)";
+    else if (count >= 200) nurse = category === "1" ? "6次/月" : category === "2" ? "4次/月" : "3次/月";
+    else if (count >= 100) nurse = category === "1" ? "4次/月" : category === "2" ? "3次/月" : "2次/月";
     else nurse = "1次/月";
-    if (count >= 300) doctor = "1次/月";
+
+    // Doctor
+    if (count >= 6000) doctor = "18次/月";
+    else if (count >= 5000) doctor = category === "1" ? "15次/月" : category === "2" ? "9次/月" : "4次/月";
+    else if (count >= 4000) doctor = category === "1" ? "12次/月" : category === "2" ? "7次/月" : "3次/月";
+    else if (count >= 3000) doctor = category === "1" ? "9次/月" : category === "2" ? "5次/月" : "2次/月";
+    else if (count >= 2000) doctor = category === "1" ? "6次/月" : category === "2" ? "3次/月" : "1次/月";
+    else if (count >= 1000) doctor = category === "1" ? "3次/月" : category === "2" ? "1次/月" : "1次/2個月";
+    else if (count >= 300) doctor = category === "1" ? "1次/月" : category === "2" ? "1次/2個月" : "1次/3個月";
+    else if (count >= 200) doctor = category === "1" ? "6次/年" : category === "2" ? "4次/年" : "3次/年";
+    else if (count >= 100) doctor = category === "1" ? "4次/年" : category === "2" ? "3次/年" : "2次/年";
     else doctor = "1次/年";
   }
   return { nurse, doctor, desc };
@@ -129,26 +158,106 @@ const StaffManager = ({ staff, onAdd, onDelete }) => {
   );
 };
 
-const ClientManager = ({ clients, onAdd, onDelete }) => {
-  const [newClient, setNewClient] = useState({ name: '', industry: '', employees: '' });
-  const handleSubmit = (e) => { e.preventDefault(); onAdd({...newClient, employees: parseInt(newClient.employees)}); setNewClient({ name: '', industry: '', employees: '' }); };
+// --- Client Manager (RESTORED FULL LOGIC) ---
+const ClientManager = ({ clients, onAdd, onDelete, role }) => {
+  const [newClient, setNewClient] = useState({ name: '', industry: '', category: '1', regulationStd: 'rule4', employees: '', nurseFreq: '', doctorFreq: '', contractAmount: 0, customMode: false, suggestion: '' });
+  
+  const handleIndustryChange = (e) => {
+    const selectedIndustry = e.target.value;
+    let cat = '3';
+    if (INDUSTRY_DATA.cat1.includes(selectedIndustry)) cat = '1';
+    else if (INDUSTRY_DATA.cat2.includes(selectedIndustry)) cat = '2';
+    setNewClient(prev => ({ ...prev, industry: selectedIndustry, category: cat }));
+  };
+
+  useEffect(() => {
+    if (!newClient.customMode) {
+      const numEmployees = parseInt(newClient.employees) || 0;
+      const rec = calculateRegulationFrequency(newClient.category, numEmployees, newClient.regulationStd);
+      setNewClient(prev => ({ ...prev, nurseFreq: rec.nurse, doctorFreq: rec.doctor, suggestion: rec.desc }));
+    }
+  }, [newClient.category, newClient.employees, newClient.regulationStd, newClient.customMode]);
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!newClient.name || !newClient.industry) { alert("請填寫企業名稱並選擇行業分類"); return; }
+    onAdd({ ...newClient, employees: parseInt(newClient.employees) || 0 });
+    setNewClient({ name: '', industry: '', category: '1', regulationStd: 'rule4', employees: '', nurseFreq: '', doctorFreq: '', contractAmount: 0, customMode: false, suggestion: '' });
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><Building className="mr-2" /> 客戶管理</h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div><label className="text-sm font-medium">企業名稱</label><input type="text" value={newClient.name} onChange={e => setNewClient({...newClient, name: e.target.value})} className="w-full p-2 border rounded-lg" /></div>
-          <div><label className="text-sm font-medium">行業</label><select value={newClient.industry} onChange={e => setNewClient({...newClient, industry: e.target.value})} className="w-full p-2 border rounded-lg"><option value="">請選擇</option>{INDUSTRY_DATA.cat1.map(i=><option key={i} value={i}>{i}</option>)}</select></div>
-          <div><label className="text-sm font-medium">人數</label><input type="number" value={newClient.employees} onChange={e => setNewClient({...newClient, employees: e.target.value})} className="w-full p-2 border rounded-lg" /></div>
-          <button type="submit" className="bg-teal-600 text-white p-2 rounded-lg hover:bg-teal-700 flex items-center justify-center col-span-full"><Plus size={20} className="mr-1" /> 新增客戶</button>
+        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><Building className="mr-2" /> 客戶合約管理</h2>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="col-span-full md:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">企業名稱</label>
+            <input type="text" value={newClient.name} onChange={e => setNewClient({...newClient, name: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="如：ABC股份有限公司" />
+          </div>
+          <div className="col-span-full md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">法規標準</label>
+            <div className="flex space-x-4">
+              <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 p-2 rounded flex-1"><input type="radio" name="std" value="rule4" checked={newClient.regulationStd === 'rule4'} onChange={e => setNewClient({...newClient, regulationStd: e.target.value})}/><span>第4條(附表四)-風險分類</span></label>
+              <label className="flex items-center space-x-2 cursor-pointer bg-gray-50 p-2 rounded flex-1"><input type="radio" name="std" value="rule7" checked={newClient.regulationStd === 'rule7'} onChange={e => setNewClient({...newClient, regulationStd: e.target.value})}/><span>第13條(附表七)-人數規模</span></label>
+            </div>
+          </div>
+          <div className="col-span-full md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-1">行業 (附表一)</label>
+            <select value={newClient.industry} onChange={handleIndustryChange} className="w-full p-2 border rounded-lg bg-white">
+              <option value="">-- 請選擇行業 --</option>
+              <optgroup label="【第一類】顯著風險">{INDUSTRY_DATA.cat1.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>
+              <optgroup label="【第二類】中度風險">{INDUSTRY_DATA.cat2.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>
+              <optgroup label="【第三類】低度風險">{INDUSTRY_DATA.cat3.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">風險類別</label>
+            <div className={`w-full p-2 border rounded-lg font-bold text-center ${newClient.category === '1' ? 'bg-red-100 text-red-800' : newClient.category === '2' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}`}>
+              {newClient.category === '1' ? '第一類事業' : newClient.category === '2' ? '第二類事業' : '第三類事業'}
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">勞工人數</label>
+            <input type="number" value={newClient.employees} onChange={e => setNewClient({...newClient, employees: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="0" />
+          </div>
+          <div className="col-span-full border-t pt-2 mt-2">
+             <label className="flex items-center space-x-2 text-sm text-teal-600 cursor-pointer w-fit mb-2">
+               <input type="checkbox" checked={newClient.customMode} onChange={e => setNewClient({...newClient, customMode: e.target.checked})} className="w-4 h-4"/>
+               <span className="font-bold">啟用手動頻率設定</span>
+             </label>
+             <div className="grid grid-cols-2 gap-4">
+               <div>
+                 <label className="text-xs text-gray-500">護理師頻率</label>
+                 {newClient.customMode ? <input className="w-full border p-2 rounded" value={newClient.nurseFreq} onChange={e=>setNewClient({...newClient, nurseFreq: e.target.value})}/> : <select className="w-full border p-2 rounded bg-yellow-50" value={newClient.nurseFreq} onChange={e=>setNewClient({...newClient, nurseFreq: e.target.value})}>{FREQ_OPTIONS.nurse.map(o=><option key={o} value={o}>{o}</option>)}</select>}
+               </div>
+               <div>
+                 <label className="text-xs text-gray-500">醫師頻率</label>
+                 {newClient.customMode ? <input className="w-full border p-2 rounded" value={newClient.doctorFreq} onChange={e=>setNewClient({...newClient, doctorFreq: e.target.value})}/> : <select className="w-full border p-2 rounded bg-yellow-50" value={newClient.doctorFreq} onChange={e=>setNewClient({...newClient, doctorFreq: e.target.value})}>{FREQ_OPTIONS.doctor.map(o=><option key={o} value={o}>{o}</option>)}</select>}
+               </div>
+             </div>
+             <p className="text-xs text-gray-400 mt-1">法規建議: {newClient.suggestion}</p>
+          </div>
+          <button type="submit" className="bg-teal-600 text-white p-2 rounded-lg hover:bg-teal-700 flex items-center justify-center col-span-full"><Plus size={20} className="mr-1" /> 新增合約</button>
         </form>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{clients.map(c => <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between"><div><h3 className="font-bold">{c.name}</h3><p className="text-sm text-gray-500">{c.industry} | {c.employees}人</p></div><button onClick={()=>onDelete(c.id)} className="text-red-500"><Trash2 size={20}/></button></div>)}</div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {clients.map(client => (
+          <div key={client.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center">
+            <div>
+              <h3 className="font-bold text-lg text-gray-800">{client.name}</h3>
+              <p className="text-sm text-gray-500 mb-1">{client.industry || '未分類'}</p>
+              <p className="text-xs text-gray-400 mb-2">{client.employees} 人 | {client.regulationStd === 'rule7' ? '第13條' : `第4條-第${client.category}類`}</p>
+              <div className="flex space-x-2"><span className="text-xs bg-teal-100 text-teal-800 px-2 py-1 rounded">護: {client.nurseFreq}</span><span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">醫: {client.doctorFreq}</span></div>
+            </div>
+            <button onClick={() => onDelete(client.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={20} /></button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
 
-// --- Dashboard (Restored!) ---
+// --- Dashboard (Restored) ---
 const Dashboard = ({ logs, clients, staff, userRole, userProfile, setActiveTab }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
