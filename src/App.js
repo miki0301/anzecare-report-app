@@ -27,7 +27,7 @@ import {
   updateDoc
 } from 'firebase/firestore';
 
-// --- Firebase Configuration (您的真實設定) ---
+// --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: "AIzaSyBn4N2OOA5EkW0k4ZEiMYtLSJS-LgtWOtQ",
   authDomain: "anzecare-report-app.firebaseapp.com",
@@ -38,7 +38,6 @@ const firebaseConfig = {
   measurementId: "G-3J4XKE067K"
 };
 
-// 初始化 Firebase
 let app;
 let auth;
 let db;
@@ -149,6 +148,60 @@ const ClientManager = ({ clients, onAdd, onDelete }) => {
   );
 };
 
+// --- Dashboard (Restored!) ---
+const Dashboard = ({ logs, clients, staff, userRole, userProfile, setActiveTab }) => {
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const monthlyLogs = logs.filter(log => { const d = new Date(log.date); return d.getFullYear() === selectedYear && (d.getMonth() + 1) === selectedMonth; });
+  const yearlyLogs = logs.filter(log => { const d = new Date(log.date); return d.getFullYear() === selectedYear; });
+  const monthlyHours = monthlyLogs.reduce((acc, curr) => acc + parseFloat(curr.hours || 0), 0);
+  const yearlyHours = yearlyLogs.reduce((acc, curr) => acc + parseFloat(curr.hours || 0), 0);
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">{userRole === 'individual' ? `早安，${userProfile.name || '護理師'}` : '企業營運總覽'}</h2>
+        <div className="flex space-x-2 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+           <select className="p-1 text-sm bg-transparent font-medium text-gray-700 outline-none" value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))}>{[2023, 2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}年</option>)}</select>
+           <select className="p-1 text-sm bg-transparent font-medium text-gray-700 outline-none border-l pl-2" value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))}>{Array.from({length: 12}, (_, i) => i + 1).map(m => <option key={m} value={m}>{m}月</option>)}</select>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex justify-between items-start">
+            <div><p className="text-teal-100 mb-1 text-sm font-medium flex items-center"><Calendar size={14} className="mr-1"/> {selectedMonth}月 服務場次</p><h3 className="text-4xl font-bold mb-1">{monthlyLogs.length} <span className="text-lg font-normal opacity-80">場</span></h3><p className="text-xs text-teal-100 opacity-80">累積時數: {monthlyHours.toFixed(1)} hr</p></div>
+            <div className="bg-white/20 p-2 rounded-lg"><Activity className="text-white" size={24} /></div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div><p className="text-gray-500 mb-1 text-sm font-medium flex items-center"><Clock size={14} className="mr-1"/> {selectedYear}年度 累積</p><h3 className="text-4xl font-bold text-gray-800 mb-1">{yearlyLogs.length} <span className="text-lg font-normal text-gray-400">場</span></h3><p className="text-xs text-gray-400">年度累積時數: {yearlyHours.toFixed(1)} hr</p></div>
+            <div className="bg-blue-50 p-2 rounded-lg"><Calendar className="text-blue-500" size={24} /></div>
+          </div>
+        </div>
+        <button onClick={() => setActiveTab('clients')} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 text-left hover:border-teal-400 hover:shadow-md transition-all group">
+          <div className="flex justify-between items-start">
+            <div><p className="text-gray-500 mb-1 group-hover:text-teal-600 text-sm font-medium">現有合約客戶</p><h3 className="text-4xl font-bold text-gray-800 mb-1">{clients.length} <span className="text-lg font-normal text-gray-400">家</span></h3><p className="text-xs text-gray-400 group-hover:text-teal-500 flex items-center">點擊管理客戶清單 <ChevronRight size={12}/></p></div>
+            <div className="bg-gray-50 group-hover:bg-teal-50 p-2 rounded-lg transition-colors"><Building className="text-gray-400 group-hover:text-teal-500" size={24} /></div>
+          </div>
+        </button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <button onClick={() => setActiveTab('service')} className="p-6 bg-white border border-gray-200 rounded-xl flex items-center hover:bg-gray-50 transition-colors group">
+           <div className="bg-teal-100 p-3 rounded-full mr-4 text-teal-600 group-hover:scale-110 transition-transform"><Plus size={24} /></div>
+           <div className="text-left"><h4 className="font-bold text-lg text-gray-800">新增服務紀錄</h4><p className="text-gray-500 text-sm">填寫臨場服務日誌 (附表八)</p></div>
+           <ChevronRight className="ml-auto text-gray-300 group-hover:text-teal-500" />
+        </button>
+        <button onClick={() => setActiveTab('reports')} className="p-6 bg-white border border-gray-200 rounded-xl flex items-center hover:bg-gray-50 transition-colors group">
+           <div className="bg-blue-100 p-3 rounded-full mr-4 text-blue-600 group-hover:scale-110 transition-transform"><FileText size={24} /></div>
+           <div className="text-left"><h4 className="font-bold text-lg text-gray-800">報表中心</h4><p className="text-gray-500 text-sm">查看歷史紀錄與列印報表</p></div>
+           <ChevronRight className="ml-auto text-gray-300 group-hover:text-blue-500" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // --- Service Logger (With Auto-Fill Logic) ---
 const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialData, onCancelEdit, logs }) => {
   
@@ -221,7 +274,6 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
           signatures: lastReport.signatures || prev.signatures
         }));
         setAutoFilled(true);
-        // Toast/Alert could go here
       } else {
         // No history, reset to default but keep clientId and sync employee count
         const client = clients.find(c => c.id === log.clientId);
@@ -232,7 +284,7 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
         setAutoFilled(false);
       }
     }
-  }, [log.clientId, initialData]); // Run when clientId changes (dropdown selection)
+  }, [log.clientId, initialData]); 
 
   const totalLabor = (parseInt(log.admin_male)||0) + (parseInt(log.admin_female)||0) + (parseInt(log.field_male)||0) + (parseInt(log.field_female)||0);
   const totalSpecial = log.special_hazards.reduce((acc, curr) => acc + (parseInt(curr.count)||0), 0);
@@ -643,7 +695,7 @@ export default function AnzeApp() {
         {activeTab === 'clients' && <ClientManager clients={clients} onAdd={addClient} onDelete={deleteClient} />}
         {activeTab === 'service' && <ServiceLogger staff={staff} clients={clients} onSaveLog={saveLog} role={userRole} userProfile={userProfile} initialData={editingLog} logs={logs} onCancelEdit={()=>{setEditingLog(null); setActiveTab('reports');}} />}
         {activeTab === 'reports' && <ReportView logs={logs} onDelete={deleteLog} onEdit={handleEditLog} role={userRole} />}
-        {activeTab === 'dashboard' && <div className="p-4 bg-teal-600 text-white rounded-xl">歡迎使用 Anze Care 系統</div>}
+        {activeTab === 'dashboard' && <Dashboard logs={logs} clients={clients} staff={staff} userRole={userRole} userProfile={userProfile} setActiveTab={setActiveTab} />}
       </div>
     </div>
   );
