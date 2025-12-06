@@ -71,7 +71,12 @@ const calculateRegulationFrequency = (category, count, standard = 'rule4') => {
   if (standard === 'rule7') {
     desc = `依據附表七 (第13條)，勞工${count}人`;
     if (count >= 3000) { doctor = "1次/2個月"; nurse = "1次/月"; } 
-    else if (count >= 50) { doctor = "1次/年"; nurse = "1次/3個月"; }
+    else if (count >= 1000) { doctor = "1次/3個月"; nurse = "1次/月"; }
+    else if (count >= 300) { doctor = "1次/6個月"; nurse = "1次/2個月"; }
+    else if (count >= 50) { 
+      doctor = "1次/年"; nurse = "1次/3個月";
+      if (count < 100) desc += " (註：50-99人且未具特別危害者不適用此表)";
+    }
   } else {
     desc = `依據附表四 (第4條)，勞工${count}人，屬第${category}類事業`;
     if (count >= 300) nurse = "專職護理人員";
@@ -311,9 +316,9 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
     // Plan Details (Maternal)
     maternal_hazard_check: false, 
     mat_female_total: '', mat_repro_age: '', mat_pregnant: '', mat_postpartum: '', mat_breastfeeding: '',
-    mat_doc_need: '', mat_doc_done: '', mat_doc_not: '', // [Update] Doc interview split
+    mat_doc_need: '', mat_doc_done: '', mat_doc_not: '', 
     mat_track: '', mat_medical: '',
-    mat_nurse_need: '', mat_nurse_done: '', mat_nurse_not: '', // [Update] Nurse guide split
+    mat_nurse_need: '', mat_nurse_done: '', mat_nurse_not: '',
     mat_referral: '', mat_regular_track: '',
     // Injury
     injury_report_count: 0, injury_unclosed: 0, injury_closed: 0, injury_note: '',
@@ -558,10 +563,29 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                 </div>
             ))}
         </div>
-        <div className="mt-4">
-            <label className="font-bold block mb-1">發現問題與建議</label>
-            <textarea className="w-full border p-2 rounded h-20" value={log.section3_findings} onChange={e=>setLog({...log, section3_findings: e.target.value})} placeholder="請輸入..."></textarea>
+        <div className="mt-4 border-t pt-4">
+            <h4 className="font-bold text-sm block mb-2 text-teal-800">（二）發現問題 (對應辦理事項描述)</h4>
+            <textarea className="w-full border p-2 rounded h-20" value={log.section3_findings} onChange={e=>setLog({...log, section3_findings: e.target.value})} placeholder="請輸入發現問題..."></textarea>
         </div>
+      </div>
+
+      <div className="border border-blue-100 rounded-lg p-4 bg-blue-50">
+         <h3 className="font-bold border-b border-blue-200 pb-2 mb-3 text-blue-800">四、建議採行措施 (執行紀錄)</h3>
+         <p className="text-xs text-gray-500 mb-2">請針對上方勾選的項目填寫具體的執行內容。</p>
+         <div className="space-y-4">
+            {CHECKLIST_ITEMS.filter(i => log[i.key]).map(item => (
+              <div key={item.key} className="bg-white p-3 rounded shadow-sm">
+                <label className="font-bold text-sm text-gray-700 block mb-2">{item.label}</label>
+                <textarea 
+                  rows="3" 
+                  className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-200"
+                  placeholder="請輸入執行紀錄或建議..."
+                  value={log.suggestions_map[item.key] || ''}
+                  onChange={e => handleSuggestionChange(item.key, e.target.value)}
+                />
+              </div>
+            ))}
+         </div>
       </div>
 
       <div className="border p-4 rounded-lg bg-gray-50">
@@ -615,7 +639,7 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                         <div>追蹤一覽: 疑似危害 <input className="border w-10" value={log.ergo_risk_count} onChange={e=>setLog({...log, ergo_risk_count:e.target.value})}/> / 已面談 <input className="border w-10" value={log.ergo_int_done} onChange={e=>setLog({...log, ergo_int_done:e.target.value})}/></div>
                       </div>}
                    </div>
-                   {/* 不法侵害 */}
+                   {/* 不法侵害 (Revised) */}
                    <div className="border p-2 rounded">
                       <div className="flex justify-between items-center border-b pb-1 mb-2">
                           <span className="font-bold">職場不法侵害預防</span>
@@ -646,6 +670,19 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                    </div>
                    <div>醫師面談: 需 <input className="border w-10" value={log.mat_doc_need} onChange={e=>handleMatDocCalc('mat_doc_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_doc_done} onChange={e=>handleMatDocCalc('mat_doc_done',e.target.value)}/> / 未 {log.mat_doc_not}</div>
                    <div>護理指導: 需 <input className="border w-10" value={log.mat_nurse_need} onChange={e=>handleMatNurseCalc('mat_nurse_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_nurse_done} onChange={e=>handleMatNurseCalc('mat_nurse_done',e.target.value)}/> / 未 {log.mat_nurse_not}</div>
+                </div>
+              )}
+            </div>
+
+            {/* 職傷 */}
+            <div>
+              <label className="flex items-center font-bold mb-2"><input type="checkbox" checked={log.show_tracking_5} onChange={e=>setLog({...log, show_tracking_5: e.target.checked})} className="mr-2"/> (5) 職業傷病追蹤 (含交通)</label>
+              {log.show_tracking_5 && (
+                <div className="pl-6 text-xs bg-gray-50 p-2 rounded grid grid-cols-3 gap-2">
+                   <div>通報人數: <input className="border w-12" value={log.injury_report_count} onChange={e=>setLog({...log, injury_report_count:e.target.value})}/></div>
+                   <div>未結案: <input className="border w-12" value={log.injury_unclosed} onChange={e=>setLog({...log, injury_unclosed:e.target.value})}/></div>
+                   <div>結案: <input className="border w-12" value={log.injury_closed} onChange={e=>setLog({...log, injury_closed:e.target.value})}/></div>
+                   <div className="col-span-3">備註: <input className="border w-full" value={log.injury_note} onChange={e=>setLog({...log, injury_note:e.target.value})}/></div>
                 </div>
               )}
             </div>
@@ -821,6 +858,37 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
              </ul>
              <div className="mt-2 pt-2 border-t border-dashed font-bold">發現問題: <span className="font-normal">{selectedLog.section3_findings}</span></div>
            </div>
+        </div>
+
+        <div className="mb-4">
+           <table className="w-full border-collapse border border-black text-sm">
+             <thead><tr><th className="border border-black p-1 w-1/3">四、建議採行措施 (對應執行情形)</th><th className="border border-black p-1 w-2/3">執行紀錄內容</th></tr></thead>
+             <tbody>
+               {Object.keys(selectedLog.suggestions_map || {}).length > 0 ? (
+                 Object.entries(selectedLog.suggestions_map).map(([key, text]) => {
+                   let label = '';
+                   // Match label logic from above to display correct section name
+                   if(key==='check_health') label='體格檢查分析';
+                   else if(key==='check_job') label='適性配工';
+                   else if(key==='check_track') label='健檢異常追蹤';
+                   else if(key==='check_high_risk') label='高風險評估';
+                   else if(key==='check_edu') label='健康教育指導';
+                   else if(key==='check_emerg') label='急救處置';
+                   else if(key==='check_env') label='環境危害辨識';
+                   else label = '其他事項';
+
+                   return (
+                     <tr key={key}>
+                       <td className="border border-black p-2 align-top">{label}</td>
+                       <td className="border border-black p-2 align-top whitespace-pre-wrap">{text}</td>
+                     </tr>
+                   );
+                 })
+               ) : (
+                 <tr><td className="border border-black p-2 align-top h-16"></td><td className="border border-black p-2 align-top h-16"></td></tr>
+               )}
+             </tbody>
+           </table>
         </div>
 
         <div className="mb-4 page-break-inside-avoid">
