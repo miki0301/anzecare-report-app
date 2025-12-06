@@ -91,13 +91,11 @@ const calculateRegulationFrequency = (category, count, standard = 'rule4') => {
     }
   } else {
     desc = `依據附表四 (第4條)，勞工${count}人，屬第${category}類事業`;
-    // Nurse
     if (count >= 300) nurse = "專職護理人員 (300人以上)";
     else if (count >= 200) nurse = category === "1" ? "6次/月" : category === "2" ? "4次/月" : "3次/月";
     else if (count >= 100) nurse = category === "1" ? "4次/月" : category === "2" ? "3次/月" : "2次/月";
     else nurse = "1次/月";
 
-    // Doctor
     if (count >= 6000) doctor = "18次/月";
     else if (count >= 5000) doctor = category === "1" ? "15次/月" : category === "2" ? "9次/月" : "4次/月";
     else if (count >= 4000) doctor = category === "1" ? "12次/月" : category === "2" ? "7次/月" : "3次/月";
@@ -158,7 +156,6 @@ const StaffManager = ({ staff, onAdd, onDelete }) => {
   );
 };
 
-// --- Client Manager (RESTORED FULL LOGIC) ---
 const ClientManager = ({ clients, onAdd, onDelete, role }) => {
   const [newClient, setNewClient] = useState({ name: '', industry: '', category: '1', regulationStd: 'rule4', employees: '', nurseFreq: '', doctorFreq: '', contractAmount: 0, customMode: false, suggestion: '' });
   
@@ -311,7 +308,7 @@ const Dashboard = ({ logs, clients, staff, userRole, userProfile, setActiveTab }
   );
 };
 
-// --- Service Logger (With Auto-Fill Logic) ---
+// --- Service Logger (FULL Detailed Version with Auto-Fill) ---
 const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialData, onCancelEdit, logs }) => {
   
   // Default State Definition
@@ -379,7 +376,6 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
           id: undefined, // Clear ID to ensure creation
           createdAt: undefined,
           updatedAt: undefined,
-          // Keep signatures from last time as it's convenient, but ensure logic is consistent
           signatures: lastReport.signatures || prev.signatures
         }));
         setAutoFilled(true);
@@ -458,12 +454,12 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
   };
 
   const CHECKLIST_ITEMS = [
-    { key: 'check_health', label: '勞工一般/特殊/供膳等體格（健康）檢查結果之分析與評估。' },
-    { key: 'check_job', label: '協助雇主選配勞工從事適當之工作' },
-    { key: 'check_track', label: '辦理健康檢查結果異常者之追蹤管理及健康指導' },
-    { key: 'check_high_risk', label: '辦理高風險勞工(母性/職傷/未滿18)之評估及個案管理' },
+    { key: 'check_health', label: '勞工一般/特殊/供膳等體格（健康）檢查結果之分析與評估、健康管理及資料保存。' },
+    { key: 'check_job', label: '協助雇主選配勞工從事適當之工作', hasCount: true, countKey: 'job_sel_count' },
+    { key: 'check_track', label: '辦理健康檢查結果異常者之追蹤管理及健康指導', hasCount: true, countKey: 'tracking_count' },
+    { key: 'check_high_risk', label: '辦理高風險勞工(母性/職傷/未滿18)之評估及個案管理', hasCount: true, countKey: 'high_risk_count' },
     { key: 'check_edu', label: '勞工之健康教育、衛生指導、身心健康保護。' },
-    { key: 'check_emerg', label: '工作相關傷病之預防、健康諮詢與急救。' },
+    { key: 'check_emerg', label: '工作相關傷病之預防、健康諮詢與急救。', hasCount: true, countKey: 'emergency_count' },
     { key: 'check_env', label: '辨識與評估工作場所環境危害。' },
     { key: 'check_other', label: '其他經中央主管機關指定公告者(四大計畫等)。' },
   ];
@@ -489,24 +485,52 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                 <option value="">請選擇...</option>{clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select></div>
             <div><label className="text-sm font-bold">日期</label><input type="date" className="w-full p-2 border rounded" value={log.date} onChange={e=>setLog({...log, date: e.target.value})}/></div>
+            <div><label className="text-sm font-medium">部門</label><input type="text" className="w-full p-2 border rounded" value={log.dept_name} onChange={e => setLog({...log, dept_name: e.target.value})}/></div>
+            <div><label className="text-sm font-medium">地址</label><input type="text" className="w-full p-2 border rounded" value={log.address} onChange={e => setLog({...log, address: e.target.value})}/></div>
         </div>
-        <div className="bg-white p-3 border rounded text-sm">
+        <div className="bg-white p-3 border rounded text-sm mb-3">
             <span className="font-bold">總人數: {totalLabor}</span> (男{log.field_male+log.admin_male}/女{log.field_female+log.admin_female})
             <div className="grid grid-cols-4 gap-2 mt-2">
-                <input placeholder="現場男" type="number" className="border p-1" value={log.field_male} onChange={e=>setLog({...log, field_male: e.target.value})}/>
-                <input placeholder="現場女" type="number" className="border p-1" value={log.field_female} onChange={e=>setLog({...log, field_female: e.target.value})}/>
+                <div><label className="text-xs">行政(男)</label><input type="number" className="border p-1 w-full" value={log.admin_male} onChange={e=>setLog({...log, admin_male: e.target.value})}/></div>
+                <div><label className="text-xs">行政(女)</label><input type="number" className="border p-1 w-full" value={log.admin_female} onChange={e=>setLog({...log, admin_female: e.target.value})}/></div>
+                <div><label className="text-xs">現場(男)</label><input type="number" className="border p-1 w-full" value={log.field_male} onChange={e=>setLog({...log, field_male: e.target.value})}/></div>
+                <div><label className="text-xs">現場(女)</label><input type="number" className="border p-1 w-full" value={log.field_female} onChange={e=>setLog({...log, field_female: e.target.value})}/></div>
+            </div>
+        </div>
+        <div className="bg-white p-3 rounded border">
+            <h4 className="text-sm font-bold mb-2">作業類別與危害</h4>
+            <div className="mb-2"><label className="text-xs">一般作業人數</label><input type="number" className="border p-1 w-20 ml-2" value={log.work_general_count} onChange={e=>setLog({...log, work_general_count: e.target.value})}/></div>
+            <div className="border-t pt-2 mt-2">
+                <label className="text-xs font-bold text-red-600 block mb-1">特別危害健康作業 ({totalSpecial}人)</label>
+                {totalSpecial >= 50 && <div className="bg-red-100 text-red-800 p-1 rounded mb-1 text-xs"><AlertTriangle size={12} className="inline mr-1"/> 警示：需職醫臨場</div>}
+                <div className="flex space-x-2 mb-2"><input placeholder="類別(如:噪音)" className="border p-1 w-2/3" value={newSpecial.category} onChange={e=>setNewSpecial({...newSpecial, category: e.target.value})}/><input type="number" placeholder="人數" className="border p-1 w-1/3" value={newSpecial.count} onChange={e=>setNewSpecial({...newSpecial, count: e.target.value})}/><button type="button" onClick={addSpecial}><Plus size={16}/></button></div>
+                {log.special_hazards.map((h, i) => (<div key={i} className="flex justify-between items-center bg-red-50 p-1 mb-1 rounded text-xs"><span>{h.category}: {h.count}人</span><button type="button" onClick={()=>removeSpecial(i)}><X size={12}/></button></div>))}
             </div>
         </div>
       </div>
 
       <div className="border p-4 rounded-lg bg-gray-50">
-        <h3 className="font-bold border-b pb-2 mb-3">二、執行情形勾選</h3>
+        <h3 className="font-bold border-b pb-2 mb-3">二、作業場所與勞動概況</h3>
+        <div className="space-y-2 mb-3">
+            <div><label className="text-sm">製程</label><input className="w-full border p-2 rounded" value={log.process} onChange={e=>setLog({...log, process: e.target.value})}/></div>
+            <div><label className="text-sm">工時</label><input className="w-full border p-2 rounded" value={log.work_type_time} onChange={e=>setLog({...log, work_type_time: e.target.value})}/></div>
+        </div>
+        <div className="bg-white p-3 rounded border">
+            <h4 className="text-sm font-bold mb-2">初步危害辨識</h4>
+            <div className="flex space-x-2 mb-2"><input placeholder="類型" className="border p-1 w-1/3" value={newHazard.type} onChange={e=>setNewHazard({...newHazard, type: e.target.value})}/><input placeholder="職務" className="border p-1 w-1/3" value={newHazard.job} onChange={e=>setNewHazard({...newHazard, job: e.target.value})}/><input placeholder="辨識" className="border p-1 w-1/3" value={newHazard.desc} onChange={e=>setNewHazard({...newHazard, desc: e.target.value})}/><button type="button" onClick={addHazard}><Plus size={16}/></button></div>
+            {log.hazards.map((h, i) => (<div key={i} className="flex justify-between bg-gray-100 p-2 mb-1 rounded text-xs"><span>{h.type} - {h.job} - {h.desc}</span><button type="button" onClick={()=>removeHazard(i)}><X size={12}/></button></div>))}
+        </div>
+      </div>
+
+      <div className="border p-4 rounded-lg bg-gray-50">
+        <h3 className="font-bold border-b pb-2 mb-3">三、執行情形勾選</h3>
         <div className="space-y-2">
             {CHECKLIST_ITEMS.map(item => (
                 <div key={item.key}>
                     <label className="flex items-center space-x-2">
                         <input type="checkbox" checked={log[item.key]} onChange={e=>setLog({...log, [item.key]: e.target.checked})} className="w-4 h-4"/>
                         <span>{item.label}</span>
+                        {item.hasCount && log[item.key] && <span className="text-xs ml-2">共 <input type="number" className="border w-12 p-0.5" value={log[item.countKey]} onChange={e=>setLog({...log, [item.countKey]: e.target.value})}/> 人</span>}
                     </label>
                     {item.key === 'check_other' && log.check_other && (
                         <div className="pl-6 mt-1 grid grid-cols-2 gap-2 text-sm bg-white p-2 rounded border">
@@ -801,7 +825,7 @@ export default function AnzeApp() {
       </div>
       <div className="flex-1 p-8 overflow-y-auto print:p-0">
         {activeTab === 'staff' && <StaffManager staff={staff} onAdd={addStaff} onDelete={deleteStaff} />}
-        {activeTab === 'clients' && <ClientManager clients={clients} onAdd={addClient} onDelete={deleteClient} />}
+        {activeTab === 'clients' && <ClientManager clients={clients} onAdd={addClient} onDelete={deleteClient} role={userRole} />}
         {activeTab === 'service' && <ServiceLogger staff={staff} clients={clients} onSaveLog={saveLog} role={userRole} userProfile={userProfile} initialData={editingLog} logs={logs} onCancelEdit={()=>{setEditingLog(null); setActiveTab('reports');}} />}
         {activeTab === 'reports' && <ReportView logs={logs} onDelete={deleteLog} onEdit={handleEditLog} role={userRole} />}
         {activeTab === 'dashboard' && <Dashboard logs={logs} clients={clients} staff={staff} userRole={userRole} userProfile={userProfile} setActiveTab={setActiveTab} />}
