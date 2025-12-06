@@ -115,6 +115,43 @@ const LoginScreen = ({ onSelectRole }) => (
   </div>
 );
 
+// --- [RESTORED] User Profile Component ---
+const UserProfile = ({ profile, onSave }) => {
+  const [data, setData] = useState({ name: '', title: '勞工健康服務護理師', license: '', ...profile });
+  const handleSave = (e) => {
+    e.preventDefault();
+    onSave(data);
+    alert('個人資料已更新！下次填寫紀錄時將自動帶入。');
+  };
+  // Sync if profile updates from DB
+  useEffect(() => { if (profile) setData(prev => ({...prev, ...profile})); }, [profile]);
+
+  return (
+    <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+      <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+        <Settings className="mr-2" /> 個人執業設定
+      </h2>
+      <form onSubmit={handleSave} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">您的姓名 (將自動帶入簽名欄)</label>
+          <input type="text" value={data.name} onChange={e => setData({...data, name: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="如：李小明" required />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">預設職稱</label>
+            <input type="text" value={data.title} onChange={e => setData({...data, title: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="如：勞工健康服務護理人員" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">證照/字號 (選填)</label>
+            <input type="text" value={data.license} onChange={e => setData({...data, license: e.target.value})} className="w-full p-2 border rounded-lg" placeholder="如：護字第12345號" />
+          </div>
+        </div>
+        <button type="submit" className="w-full bg-teal-600 text-white py-3 rounded-lg hover:bg-teal-700 font-bold">儲存設定</button>
+      </form>
+    </div>
+  );
+};
+
 const StaffManager = ({ staff, onAdd, onDelete }) => {
   const [newStaff, setNewStaff] = useState({ name: '', role: '勞工健康服務護理師', hourlyRate: 2000 });
   const handleSubmit = (e) => { e.preventDefault(); onAdd(newStaff); setNewStaff({ name: '', role: '勞工健康服務護理師', hourlyRate: 2000 }); };
@@ -440,6 +477,10 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
   };
   const addClientSignature = () => setLog(prev => ({...prev, signatures: { ...prev.signatures, client: [...prev.signatures.client, { id: Date.now(), title: '自訂職稱', name: '' }] }}));
   const removeClientSignature = (index) => setLog(prev => { const newClientSigs = [...prev.signatures.client]; newClientSigs.splice(index, 1); return { ...prev, signatures: { ...prev.signatures, client: newClientSigs } }; });
+  
+  // [NEW] Add Onsite Signature
+  const addOnsiteSignature = () => setLog(prev => ({...prev, signatures: { ...prev.signatures, onsite: [...prev.signatures.onsite, { id: Date.now(), title: '自訂職稱', name: '' }] }}));
+  const removeOnsiteSignature = (index) => setLog(prev => { const newOnsiteSigs = [...prev.signatures.onsite]; newOnsiteSigs.splice(index, 1); return { ...prev, signatures: { ...prev.signatures, onsite: newOnsiteSigs } }; });
 
   const handleSave = (status) => {
     if (!log.clientId) { alert("請選擇客戶"); return; }
@@ -693,10 +734,16 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
         <h3 className="font-bold border-b border-teal-200 pb-2 mb-3 text-teal-800">六、執行人員及日期 (僅就當次實際執行者簽章)</h3>
         <div className="grid grid-cols-2 gap-6">
             <div className="bg-white p-3 rounded border border-teal-100">
-                <h4 className="text-center font-bold text-sm mb-2 text-teal-700">臨場服務人員</h4>
+                <h4 className="text-center font-bold text-sm mb-2 text-teal-700 flex justify-between items-center">
+                  <span>臨場服務人員</span>
+                  <button type="button" onClick={addOnsiteSignature} className="text-teal-600 hover:text-teal-800"><Plus size={16}/></button>
+                </h4>
                 {log.signatures.onsite.map((sig, idx) => (
-                    <div key={sig.id} className="mb-2">
-                        <input className="block w-full text-xs text-gray-500 border-none bg-transparent mb-1" value={sig.title} onChange={e=>handleSignatureChange('onsite', idx, 'title', e.target.value)} />
+                    <div key={sig.id} className="mb-2 relative group">
+                        <div className="flex justify-between items-center mb-1">
+                          <input className="text-xs text-gray-500 border-none bg-transparent w-full" value={sig.title} onChange={e=>handleSignatureChange('onsite', idx, 'title', e.target.value)} />
+                          <button type="button" onClick={()=>removeOnsiteSignature(idx)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><X size={12}/></button>
+                        </div>
                         <input className="w-full border p-1 rounded" placeholder="姓名" value={sig.name} onChange={e=>handleSignatureChange('onsite', idx, 'name', e.target.value)} />
                     </div>
                 ))}
@@ -867,7 +914,6 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                {Object.keys(selectedLog.suggestions_map || {}).length > 0 ? (
                  Object.entries(selectedLog.suggestions_map).map(([key, text]) => {
                    let label = '';
-                   // Match label logic from above to display correct section name
                    if(key==='check_health') label='體格檢查分析';
                    else if(key==='check_job') label='適性配工';
                    else if(key==='check_track') label='健檢異常追蹤';
@@ -1073,6 +1119,7 @@ export default function AnzeApp() {
         {activeTab === 'service' && <ServiceLogger staff={staff} clients={clients} onSaveLog={saveLog} role={userRole} userProfile={userProfile} initialData={editingLog} logs={logs} onCancelEdit={()=>{setEditingLog(null); setActiveTab('reports');}} />}
         {activeTab === 'reports' && <ReportView logs={logs} onDelete={deleteLog} onEdit={handleEditLog} role={userRole} />}
         {activeTab === 'dashboard' && <Dashboard logs={logs} clients={clients} staff={staff} userRole={userRole} userProfile={userProfile} setActiveTab={setActiveTab} />}
+        {activeTab === 'profile' && userRole === 'individual' && <UserProfile profile={userProfile} onSave={saveProfile} />}
       </div>
     </div>
   );
