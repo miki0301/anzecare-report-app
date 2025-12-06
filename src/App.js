@@ -284,44 +284,36 @@ const Dashboard = ({ logs, clients, staff, userRole, userProfile, setActiveTab }
 // --- Service Logger (FIXED & RESTORED FULL VERSION) ---
 const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialData, onCancelEdit, logs }) => {
   
-  // Default State Definition
   const createDefaultState = (clientId = '') => ({
-    clientId: clientId, 
-    serviceMode: 'nurse_only', 
-    date: new Date().toISOString().split('T')[0], 
-    startTime: '14:00', endTime: '17:00',
-    dept_name: '', address: '', 
-    admin_male: 0, admin_female: 0, field_male: 0, field_female: 0, 
-    work_general_count: 0, special_hazards: [], 
-    process: '', work_type_time: '', hazards: [],
-    // Checklists
+    clientId: clientId, serviceMode: 'nurse_only', date: new Date().toISOString().split('T')[0], startTime: '14:00', endTime: '17:00',
+    dept_name: '', address: '', admin_male: 0, admin_female: 0, field_male: 0, field_female: 0, work_general_count: 0, special_hazards: [], process: '', work_type_time: '', hazards: [],
     check_health: false, check_job: false, check_track: false, check_high_risk: false, check_research: false, check_edu: false, check_emerg: false, check_report: false, check_env: false, check_env_impr: false, check_survey: false, check_return: false, check_other: false,
-    // Checklist inputs
     job_sel_count: '', tracking_count: '', high_risk_count: '', emergency_count: '', other_note: '',
-    // Plans
     plan_ergo: false, plan_overwork: false, plan_maternal: false, plan_violence: false, plan_age: false, plan_hearing: false, plan_breath: false, plan_epidemic: false, plan_other_central: false, other_central_note: '',
     section3_findings: '', suggestions_map: {}, prev_tracking: '', 
+    // Show Toggles
     show_tracking_2: true, show_tracking_3: true, show_tracking_4: true, show_tracking_5: true,
+    show_plan_overwork: true, show_plan_ergo: true, show_plan_violence: true, 
+    showLevel2: true, // [Restore] Level 2 Toggle
     exam_year: new Date().getFullYear(),
     level4_interview: '', level4_not: '', level4_close: '', level4_track: '', 
     level3_interview: '', level3_not: '', level3_close: '', level3_track: '', 
-    level2_interview: '', level2_not: '', level2_close: '', level2_track: '', showLevel2: true,
+    level2_interview: '', level2_not: '', level2_close: '', level2_track: '', 
     // Plan Details (Overwork)
     overwork_survey_total: '', overwork_survey_done: '', overwork_survey_not: '',
     overwork_risk_count: '', overwork_int_need: '', overwork_int_done: '', overwork_int_not: '',
     // Plan Details (Ergo)
     ergo_survey_total: '', ergo_survey_done: '', ergo_survey_not: '',
     ergo_risk_count: '', ergo_int_done: '', ergo_int_not: '',
-    // Plan Details (Violence) - Removed checklist item as requested
-    violence_statement: false, 
-    violence_assess_target: '', violence_assess_done: '', violence_assess_not: '',
+    // Plan Details (Violence)
+    violence_statement: false, violence_assess_target: '', violence_assess_done: '', violence_assess_not: '',
     violence_config: false, violence_adjust: false, violence_report: false,
     // Plan Details (Maternal)
     maternal_hazard_check: false, 
     mat_female_total: '', mat_repro_age: '', mat_pregnant: '', mat_postpartum: '', mat_breastfeeding: '',
-    mat_doc_interview: '', mat_doc_done: '', mat_doc_not: '',
+    mat_doc_need: '', mat_doc_done: '', mat_doc_not: '', // [Update] Doc interview split
     mat_track: '', mat_medical: '',
-    mat_nurse_guidance: '', mat_nurse_done: '', mat_nurse_not: '',
+    mat_nurse_need: '', mat_nurse_done: '', mat_nurse_not: '', // [Update] Nurse guide split
     mat_referral: '', mat_regular_track: '',
     // Injury
     injury_report_count: 0, injury_unclosed: 0, injury_closed: 0, injury_note: '',
@@ -343,24 +335,18 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
   const [autoFilled, setAutoFilled] = useState(false);
   const fileInputRef = useRef(null);
 
-  // 1. Init Data (Edit Mode)
   useEffect(() => {
-    if (initialData) {
-      setLog({ ...createDefaultState(), ...initialData });
-    }
+    if (initialData) setLog({ ...createDefaultState(), ...initialData });
   }, [initialData]);
 
-  // 2. Auto-Fill Logic (Create Mode)
   useEffect(() => {
     if (!initialData && log.clientId) {
       const history = logs.filter(l => l.clientId === log.clientId);
       if (history.length > 0) {
         const lastReport = history.sort((a, b) => new Date(b.date) - new Date(a.date))[0];
         setLog(prev => ({
-          ...prev,
-          ...lastReport, 
-          date: new Date().toISOString().split('T')[0],
-          startTime: '14:00', endTime: '17:00',
+          ...prev, ...lastReport, 
+          date: new Date().toISOString().split('T')[0], startTime: '14:00', endTime: '17:00',
           status: 'draft', version: 1, id: undefined, createdAt: undefined, updatedAt: undefined,
           signatures: lastReport.signatures || prev.signatures
         }));
@@ -372,6 +358,51 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
       }
     }
   }, [log.clientId, initialData]); 
+
+  // --- Auto-Calc Handlers ---
+  const handleOverworkCalc = (field, val) => {
+    const newVal = val;
+    let updates = { [field]: newVal };
+    if (field === 'overwork_int_need' || field === 'overwork_int_done') {
+        const need = parseInt(field === 'overwork_int_need' ? newVal : log.overwork_int_need) || 0;
+        const done = parseInt(field === 'overwork_int_done' ? newVal : log.overwork_int_done) || 0;
+        updates.overwork_int_not = need - done;
+    }
+    setLog(prev => ({...prev, ...updates}));
+  };
+
+  const handleErgoCalc = (field, val) => {
+    const newVal = val;
+    let updates = { [field]: newVal };
+    if (field === 'ergo_survey_total' || field === 'ergo_survey_done') {
+        const total = parseInt(field === 'ergo_survey_total' ? newVal : log.ergo_survey_total) || 0;
+        const done = parseInt(field === 'ergo_survey_done' ? newVal : log.ergo_survey_done) || 0;
+        updates.ergo_survey_not = total - done;
+    }
+    setLog(prev => ({...prev, ...updates}));
+  };
+
+  const handleMatDocCalc = (field, val) => {
+    const newVal = val;
+    let updates = { [field]: newVal };
+    if (field === 'mat_doc_need' || field === 'mat_doc_done') {
+        const need = parseInt(field === 'mat_doc_need' ? newVal : log.mat_doc_need) || 0;
+        const done = parseInt(field === 'mat_doc_done' ? newVal : log.mat_doc_done) || 0;
+        updates.mat_doc_not = need - done;
+    }
+    setLog(prev => ({...prev, ...updates}));
+  };
+
+  const handleMatNurseCalc = (field, val) => {
+    const newVal = val;
+    let updates = { [field]: newVal };
+    if (field === 'mat_nurse_need' || field === 'mat_nurse_done') {
+        const need = parseInt(field === 'mat_nurse_need' ? newVal : log.mat_nurse_need) || 0;
+        const done = parseInt(field === 'mat_nurse_done' ? newVal : log.mat_nurse_done) || 0;
+        updates.mat_nurse_not = need - done;
+    }
+    setLog(prev => ({...prev, ...updates}));
+  };
 
   const totalLabor = (parseInt(log.admin_male)||0) + (parseInt(log.admin_female)||0) + (parseInt(log.field_male)||0) + (parseInt(log.field_female)||0);
   const totalSpecial = log.special_hazards.reduce((acc, curr) => acc + (parseInt(curr.count)||0), 0);
@@ -540,14 +571,17 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
         <div className="bg-white p-3 rounded border space-y-4">
             {/* 健檢 */}
             <div>
-              <label className="flex items-center font-bold mb-2"><input type="checkbox" checked={log.show_tracking_2} onChange={e=>setLog({...log, show_tracking_2: e.target.checked})} className="mr-2"/> (2) 健康檢查結果分析之異常追蹤</label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="flex items-center font-bold"><input type="checkbox" checked={log.show_tracking_2} onChange={e=>setLog({...log, show_tracking_2: e.target.checked})} className="mr-2"/> (2) 健康檢查結果分析之異常追蹤</label>
+                {log.show_tracking_2 && <button type="button" onClick={()=>setLog(p=>({...p, showLevel2: !p.showLevel2}))} className="text-xs bg-gray-200 px-2 py-1 rounded flex items-center">{log.showLevel2 ? <Eye size={12} className="mr-1"/> : <EyeOff size={12} className="mr-1"/>} {log.showLevel2 ? '隱藏第二級' : '顯示第二級'}</button>}
+              </div>
               {log.show_tracking_2 && (
                 <table className="w-full text-center text-xs bg-gray-50 border">
                   <thead><tr className="bg-gray-200"><th>分級</th><th>已面談</th><th>未面談</th><th>結案</th><th>追蹤中</th></tr></thead>
                   <tbody>
                     <tr><td>第四級</td><td><input className="w-12 border text-center" value={log.level4_interview} onChange={e=>setLog({...log, level4_interview:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level4_not} onChange={e=>setLog({...log, level4_not:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level4_close} onChange={e=>setLog({...log, level4_close:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level4_track} onChange={e=>setLog({...log, level4_track:e.target.value})}/></td></tr>
                     <tr><td>第三級</td><td><input className="w-12 border text-center" value={log.level3_interview} onChange={e=>setLog({...log, level3_interview:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level3_not} onChange={e=>setLog({...log, level3_not:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level3_close} onChange={e=>setLog({...log, level3_close:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level3_track} onChange={e=>setLog({...log, level3_track:e.target.value})}/></td></tr>
-                    <tr><td>第二級</td><td><input className="w-12 border text-center" value={log.level2_interview} onChange={e=>setLog({...log, level2_interview:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level2_not} onChange={e=>setLog({...log, level2_not:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level2_close} onChange={e=>setLog({...log, level2_close:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level2_track} onChange={e=>setLog({...log, level2_track:e.target.value})}/></td></tr>
+                    {log.showLevel2 && <tr><td>第二級</td><td><input className="w-12 border text-center" value={log.level2_interview} onChange={e=>setLog({...log, level2_interview:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level2_not} onChange={e=>setLog({...log, level2_not:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level2_close} onChange={e=>setLog({...log, level2_close:e.target.value})}/></td><td><input className="w-12 border text-center" value={log.level2_track} onChange={e=>setLog({...log, level2_track:e.target.value})}/></td></tr>}
                   </tbody>
                 </table>
               )}
@@ -557,34 +591,43 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
             <div>
               <label className="flex items-center font-bold mb-2"><input type="checkbox" checked={log.show_tracking_3} onChange={e=>setLog({...log, show_tracking_3: e.target.checked})} className="mr-2"/> (3) 勞工健康保護計畫執行進度</label>
               {log.show_tracking_3 && (
-                <div className="space-y-3 text-xs">
+                <div className="space-y-3 text-xs pl-6">
                    {/* 過負荷 */}
                    <div className="border p-2 rounded">
-                      <div className="font-bold mb-1">異常工作負荷促發疾病預防</div>
-                      <div className="grid grid-cols-1 gap-1">
-                        <div>問卷回收: 應做 <input className="border w-10" value={log.overwork_survey_total} onChange={e=>setLog({...log, overwork_survey_total:e.target.value})}/> / 已做 <input className="border w-10" value={log.overwork_survey_done} onChange={e=>setLog({...log, overwork_survey_done:e.target.value})}/> / 未做 <input className="border w-10" value={log.overwork_survey_not} onChange={e=>setLog({...log, overwork_survey_not:e.target.value})}/></div>
-                        <div>高風險群: <input className="border w-10" value={log.overwork_risk_count} onChange={e=>setLog({...log, overwork_risk_count:e.target.value})}/> 人</div>
-                        <div>面談指導: 需面談 <input className="border w-10" value={log.overwork_int_need} onChange={e=>setLog({...log, overwork_int_need:e.target.value})}/> / 已面談 <input className="border w-10" value={log.overwork_int_done} onChange={e=>setLog({...log, overwork_int_done:e.target.value})}/></div>
+                      <div className="flex justify-between items-center border-b pb-1 mb-2">
+                          <span className="font-bold">異常工作負荷促發疾病預防</span>
+                          <label className="flex items-center"><input type="checkbox" checked={log.show_plan_overwork} onChange={e=>setLog({...log, show_plan_overwork:e.target.checked})} className="mr-1"/> 顯示於報表</label>
                       </div>
+                      {log.show_plan_overwork && <div className="grid grid-cols-1 gap-1">
+                        <div>問卷回收: 應做 <input className="border w-10" value={log.overwork_survey_total} onChange={e=>setLog({...log, overwork_survey_total:e.target.value})}/> / 已做 <input className="border w-10" value={log.overwork_survey_done} onChange={e=>setLog({...log, overwork_survey_done:e.target.value})}/></div>
+                        <div>高風險群: <input className="border w-10" value={log.overwork_risk_count} onChange={e=>setLog({...log, overwork_risk_count:e.target.value})}/> 人</div>
+                        <div>面談指導: 需面談 <input className="border w-10" value={log.overwork_int_need} onChange={e=>handleOverworkCalc('overwork_int_need', e.target.value)}/> / 已面談 <input className="border w-10" value={log.overwork_int_done} onChange={e=>handleOverworkCalc('overwork_int_done', e.target.value)}/> / 未面談 {log.overwork_int_not} 人</div>
+                      </div>}
                    </div>
                    {/* 人因 */}
                    <div className="border p-2 rounded">
-                      <div className="font-bold mb-1">重複性肌肉骨骼疾病預防</div>
-                      <div className="grid grid-cols-1 gap-1">
-                        <div>症狀調查: 應做 <input className="border w-10" value={log.ergo_survey_total} onChange={e=>setLog({...log, ergo_survey_total:e.target.value})}/> / 已做 <input className="border w-10" value={log.ergo_survey_done} onChange={e=>setLog({...log, ergo_survey_done:e.target.value})}/> / 未做 <input className="border w-10" value={log.ergo_survey_not} onChange={e=>setLog({...log, ergo_survey_not:e.target.value})}/></div>
-                        <div>追蹤一覽: 疑似危害 <input className="border w-10" value={log.ergo_risk_count} onChange={e=>setLog({...log, ergo_risk_count:e.target.value})}/> / 已面談 <input className="border w-10" value={log.ergo_int_done} onChange={e=>setLog({...log, ergo_int_done:e.target.value})}/></div>
+                      <div className="flex justify-between items-center border-b pb-1 mb-2">
+                          <span className="font-bold">重複性肌肉骨骼疾病預防</span>
+                          <label className="flex items-center"><input type="checkbox" checked={log.show_plan_ergo} onChange={e=>setLog({...log, show_plan_ergo:e.target.checked})} className="mr-1"/> 顯示於報表</label>
                       </div>
+                      {log.show_plan_ergo && <div className="grid grid-cols-1 gap-1">
+                        <div>症狀調查: 應做 <input className="border w-10" value={log.ergo_survey_total} onChange={e=>handleErgoCalc('ergo_survey_total', e.target.value)}/> / 已做 <input className="border w-10" value={log.ergo_survey_done} onChange={e=>handleErgoCalc('ergo_survey_done', e.target.value)}/> / 未做 {log.ergo_survey_not} 份</div>
+                        <div>追蹤一覽: 疑似危害 <input className="border w-10" value={log.ergo_risk_count} onChange={e=>setLog({...log, ergo_risk_count:e.target.value})}/> / 已面談 <input className="border w-10" value={log.ergo_int_done} onChange={e=>setLog({...log, ergo_int_done:e.target.value})}/></div>
+                      </div>}
                    </div>
-                   {/* 不法侵害 (Revised) */}
+                   {/* 不法侵害 */}
                    <div className="border p-2 rounded">
-                      <div className="font-bold mb-1">職場不法侵害預防</div>
-                      <div className="grid grid-cols-1 gap-1">
+                      <div className="flex justify-between items-center border-b pb-1 mb-2">
+                          <span className="font-bold">職場不法侵害預防</span>
+                          <label className="flex items-center"><input type="checkbox" checked={log.show_plan_violence} onChange={e=>setLog({...log, show_plan_violence:e.target.checked})} className="mr-1"/> 顯示於報表</label>
+                      </div>
+                      {log.show_plan_violence && <div className="grid grid-cols-1 gap-1">
                         <div className="flex items-center justify-between"><span>預防書面聲明</span><div><label><input type="radio" checked={log.violence_statement} onChange={()=>setLog({...log, violence_statement:true})}/> 已完成</label> <label><input type="radio" checked={!log.violence_statement} onChange={()=>setLog({...log, violence_statement:false})}/> 未完成</label></div></div>
                         <div>辨識及危害評估: 應做 <input className="border w-10" value={log.violence_assess_target} onChange={e=>setLog({...log, violence_assess_target:e.target.value})}/> / 已做 <input className="border w-10" value={log.violence_assess_done} onChange={e=>setLog({...log, violence_assess_done:e.target.value})}/></div>
                         <div className="flex items-center justify-between"><span>適當配置作業場所</span><div><label><input type="radio" checked={log.violence_config} onChange={()=>setLog({...log, violence_config:true})}/> 已完成</label> <label><input type="radio" checked={!log.violence_config} onChange={()=>setLog({...log, violence_config:false})}/> 未完成</label></div></div>
                         <div className="flex items-center justify-between"><span>依工作適性調整人力</span><div><label><input type="radio" checked={log.violence_adjust} onChange={()=>setLog({...log, violence_adjust:true})}/> 已完成</label> <label><input type="radio" checked={!log.violence_adjust} onChange={()=>setLog({...log, violence_adjust:false})}/> 未完成</label></div></div>
                         <div className="flex items-center justify-between"><span>建立事件處理程序(通報)</span><div><label><input type="radio" checked={log.violence_report} onChange={()=>setLog({...log, violence_report:true})}/> 已完成</label> <label><input type="radio" checked={!log.violence_report} onChange={()=>setLog({...log, violence_report:false})}/> 未完成</label></div></div>
-                      </div>
+                      </div>}
                    </div>
                 </div>
               )}
@@ -601,7 +644,8 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                       <div>分娩後: <input className="border w-10" value={log.mat_postpartum} onChange={e=>setLog({...log, mat_postpartum:e.target.value})}/></div>
                       <div>哺乳中: <input className="border w-10" value={log.mat_breastfeeding} onChange={e=>setLog({...log, mat_breastfeeding:e.target.value})}/></div>
                    </div>
-                   <div>醫師面談: <input className="border w-10" value={log.mat_doc_done} onChange={e=>setLog({...log, mat_doc_done:e.target.value})}/> / 護理指導: <input className="border w-10" value={log.mat_nurse_done} onChange={e=>setLog({...log, mat_nurse_done:e.target.value})}/></div>
+                   <div>醫師面談: 需 <input className="border w-10" value={log.mat_doc_need} onChange={e=>handleMatDocCalc('mat_doc_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_doc_done} onChange={e=>handleMatDocCalc('mat_doc_done',e.target.value)}/> / 未 {log.mat_doc_not}</div>
+                   <div>護理指導: 需 <input className="border w-10" value={log.mat_nurse_need} onChange={e=>handleMatNurseCalc('mat_nurse_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_nurse_done} onChange={e=>handleMatNurseCalc('mat_nurse_done',e.target.value)}/> / 未 {log.mat_nurse_not}</div>
                 </div>
               )}
             </div>
@@ -745,7 +789,7 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                    else if(k==='check_emerg') label = `工作相關傷病之預防、健康諮詢與急救及緊急處置，共 ${selectedLog.emergency_count||'_'} 名`;
                    else if(k==='check_health') label = '勞工一般/特殊/供膳等體格（健康）檢查結果之分析與評估、健康管理及資料保存';
                    else if(k==='check_other') label = '其他經中央主管機關指定公告者';
-                   else label = '...'; // Simplified for others
+                   else label = '...'; 
                    
                    // Complete Mapping for Print
                    if(k==='check_research') label='職業衛生或職業健康之相關研究報告及傷害、疾病紀錄之保存';
@@ -787,32 +831,47 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                  <table className="w-full text-center border-collapse border border-black mb-2">
                      <thead><tr><th className="border border-black">健康管理分級</th><th className="border border-black">已面談或發送關懷單</th><th className="border border-black">未面談</th><th className="border border-black">結案</th><th className="border border-black">需持續追蹤</th></tr></thead>
                      <tbody>
-                         <tr><td className="border border-black">四級: {selectedLog.level4_interview}人</td><td className="border border-black">{selectedLog.level4_interview}人</td><td className="border border-black">{selectedLog.level4_not}人</td><td className="border border-black">{selectedLog.level4_close}人</td><td className="border border-black">{selectedLog.level4_track}人</td></tr>
-                         <tr><td className="border border-black">三級: {selectedLog.level3_interview}人</td><td className="border border-black">{selectedLog.level3_interview}人</td><td className="border border-black">{selectedLog.level3_not}人</td><td className="border border-black">{selectedLog.level3_close}人</td><td className="border border-black">{selectedLog.level3_track}人</td></tr>
-                         <tr><td className="border border-black">二級: {selectedLog.level2_interview}人</td><td className="border border-black">{selectedLog.level2_interview}人</td><td className="border border-black">{selectedLog.level2_not}人</td><td className="border border-black">{selectedLog.level2_close}人</td><td className="border border-black">{selectedLog.level2_track}人</td></tr>
+                         <tr><td className="border border-black">四級</td><td className="border border-black">{selectedLog.level4_interview}人</td><td className="border border-black">{selectedLog.level4_not}人</td><td className="border border-black">{selectedLog.level4_close}人</td><td className="border border-black">{selectedLog.level4_track}人</td></tr>
+                         <tr><td className="border border-black">三級</td><td className="border border-black">{selectedLog.level3_interview}人</td><td className="border border-black">{selectedLog.level3_not}人</td><td className="border border-black">{selectedLog.level3_close}人</td><td className="border border-black">{selectedLog.level3_track}人</td></tr>
+                         {selectedLog.showLevel2 && <tr><td className="border border-black">二級</td><td className="border border-black">{selectedLog.level2_interview}人</td><td className="border border-black">{selectedLog.level2_not}人</td><td className="border border-black">{selectedLog.level2_close}人</td><td className="border border-black">{selectedLog.level2_track}人</td></tr>}
                      </tbody>
                  </table>
              )}
              {selectedLog.show_tracking_3 && (
                  <div className="border border-black mb-2">
-                     <div className="bg-gray-100 font-bold border-b border-black p-1">異常工作負荷促發疾病預防</div>
-                     <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">評量問卷回收</div><div className="w-3/4 p-1">應做{selectedLog.overwork_survey_total}份 / 已做{selectedLog.overwork_survey_done}份 / 未做{selectedLog.overwork_survey_not}份</div></div>
-                     <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">辨識高風險群</div><div className="w-3/4 p-1">具異常工作負荷促發疾病高風險者 {selectedLog.overwork_risk_count} 人</div></div>
-                     <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">面談及指導</div><div className="w-3/4 p-1">需面談{selectedLog.overwork_int_need}人 / 已面談{selectedLog.overwork_int_done}人 / 未面談{selectedLog.overwork_int_not}人</div></div>
+                     {selectedLog.show_plan_overwork && <>
+                        <div className="bg-gray-100 font-bold border-b border-black p-1">異常工作負荷促發疾病預防</div>
+                        <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">評量問卷回收</div><div className="w-3/4 p-1">應做{selectedLog.overwork_survey_total}份 / 已做{selectedLog.overwork_survey_done}份 / 未做{selectedLog.overwork_survey_not}份</div></div>
+                        <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">辨識高風險群</div><div className="w-3/4 p-1">具異常工作負荷促發疾病高風險者 {selectedLog.overwork_risk_count} 人</div></div>
+                        <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">面談及指導</div><div className="w-3/4 p-1">需面談{selectedLog.overwork_int_need}人 / 已面談{selectedLog.overwork_int_done}人 / 未面談{selectedLog.overwork_int_not}人</div></div>
+                     </>}
                      
-                     <div className="bg-gray-100 font-bold border-b border-black p-1">重複性肌肉骨骼疾病預防</div>
-                     <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">症狀調查表</div><div className="w-3/4 p-1">應做{selectedLog.ergo_survey_total}份 / 已做{selectedLog.ergo_survey_done}份 / 未做{selectedLog.ergo_survey_not}份</div></div>
-                     <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">調查表追蹤</div><div className="w-3/4 p-1">疑似有危害{selectedLog.ergo_risk_count}人 / 已面談{selectedLog.ergo_int_done}人</div></div>
+                     {selectedLog.show_plan_ergo && <>
+                        <div className="bg-gray-100 font-bold border-b border-black p-1">重複性肌肉骨骼疾病預防</div>
+                        <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">症狀調查表</div><div className="w-3/4 p-1">應做{selectedLog.ergo_survey_total}份 / 已做{selectedLog.ergo_survey_done}份 / 未做{selectedLog.ergo_survey_not}份</div></div>
+                        <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">調查表追蹤</div><div className="w-3/4 p-1">疑似有危害{selectedLog.ergo_risk_count}人 / 已面談{selectedLog.ergo_int_done}人</div></div>
+                     </>}
 
-                     <div className="bg-gray-100 font-bold border-b border-black p-1">職場不法侵害預防</div>
-                     <div className="flex border-b border-black"><div className="w-1/2 p-1">預防書面聲明: {selectedLog.violence_statement?'☑ 已完成':'☐ 未完成'}</div><div className="w-1/2 p-1 border-l border-black">建立事件處理程序: {selectedLog.violence_report?'☑ 已完成':'☐ 未完成'}</div></div>
-                     <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">辨識及危害評估</div><div className="w-3/4 p-1">應做{selectedLog.violence_assess_target}份 / 已做{selectedLog.violence_assess_done}份 / 未做{selectedLog.violence_assess_not}份</div></div>
-                     <div className="flex border-b border-black"><div className="w-1/2 p-1">適當配置作業場所: {selectedLog.violence_config?'☑ 已完成':'☐ 未完成'}</div><div className="w-1/2 p-1 border-l border-black">依工作適性調整人力: {selectedLog.violence_adjust?'☑ 已完成':'☐ 未完成'}</div></div>
+                     {selectedLog.show_plan_violence && <>
+                        <div className="bg-gray-100 font-bold border-b border-black p-1">職場不法侵害預防</div>
+                        <div className="flex border-b border-black"><div className="w-1/2 p-1">預防書面聲明: {selectedLog.violence_statement?'☑ 已完成':'☐ 未完成'}</div><div className="w-1/2 p-1 border-l border-black">建立事件處理程序: {selectedLog.violence_report?'☑ 已完成':'☐ 未完成'}</div></div>
+                        <div className="flex border-b border-black"><div className="w-1/4 border-r border-black p-1">辨識及危害評估</div><div className="w-3/4 p-1">應做{selectedLog.violence_assess_target}份 / 已做{selectedLog.violence_assess_done}份 / 未做{selectedLog.violence_assess_not}份</div></div>
+                        <div className="flex border-b border-black"><div className="w-1/2 p-1">適當配置作業場所: {selectedLog.violence_config?'☑ 已完成':'☐ 未完成'}</div><div className="w-1/2 p-1 border-l border-black">依工作適性調整人力: {selectedLog.violence_adjust?'☑ 已完成':'☐ 未完成'}</div></div>
+                     </>}
+                 </div>
+             )}
+             {selectedLog.show_tracking_4 && (
+                 <div className="border border-black p-1 mb-2">
+                     <strong>(4) 母性健康保護: </strong> 
+                     危害評估({selectedLog.maternal_hazard_check?'已完成':'未完成'}) / 
+                     妊娠中{selectedLog.mat_pregnant}人 / 
+                     醫師面談(需{selectedLog.mat_doc_need}/已{selectedLog.mat_doc_done}/未{selectedLog.mat_doc_not}) / 
+                     護理指導(需{selectedLog.mat_nurse_need}/已{selectedLog.mat_nurse_done}/未{selectedLog.mat_nurse_not})
                  </div>
              )}
              {selectedLog.show_tracking_5 && (
                  <div className="border border-black p-1">
-                     <strong>(4) 職業傷病追蹤 (含上下班交通):</strong> 通報 {selectedLog.injury_report_count} 人, 未結案 {selectedLog.injury_unclosed} 人, 結案 {selectedLog.injury_closed} 人 | 備註: {selectedLog.injury_note}
+                     <strong>(5) 職業傷病追蹤 (含上下班交通):</strong> 通報 {selectedLog.injury_report_count} 人, 未結案 {selectedLog.injury_unclosed} 人, 結案 {selectedLog.injury_closed} 人 | 備註: {selectedLog.injury_note}
                  </div>
              )}
            </div>
