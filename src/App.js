@@ -115,7 +115,6 @@ const LoginScreen = ({ onSelectRole }) => (
   </div>
 );
 
-// --- [RESTORED] User Profile Component ---
 const UserProfile = ({ profile, onSave }) => {
   const [data, setData] = useState({ name: '', title: '勞工健康服務護理師', license: '', ...profile });
   const handleSave = (e) => {
@@ -123,7 +122,6 @@ const UserProfile = ({ profile, onSave }) => {
     onSave(data);
     alert('個人資料已更新！下次填寫紀錄時將自動帶入。');
   };
-  // Sync if profile updates from DB
   useEffect(() => { if (profile) setData(prev => ({...prev, ...profile})); }, [profile]);
 
   return (
@@ -323,7 +321,7 @@ const Dashboard = ({ logs, clients, staff, userRole, userProfile, setActiveTab }
   );
 };
 
-// --- Service Logger (FIXED & RESTORED FULL VERSION) ---
+// --- Service Logger ---
 const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialData, onCancelEdit, logs }) => {
   
   const createDefaultState = (clientId = '') => ({
@@ -336,7 +334,7 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
     // Show Toggles
     show_tracking_2: true, show_tracking_3: true, show_tracking_4: true, show_tracking_5: true,
     show_plan_overwork: true, show_plan_ergo: true, show_plan_violence: true, 
-    showLevel2: true, // [Restore] Level 2 Toggle
+    showLevel2: true, 
     exam_year: new Date().getFullYear(),
     level4_interview: '', level4_not: '', level4_close: '', level4_track: '', 
     level3_interview: '', level3_not: '', level3_close: '', level3_track: '', 
@@ -478,7 +476,6 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
   const addClientSignature = () => setLog(prev => ({...prev, signatures: { ...prev.signatures, client: [...prev.signatures.client, { id: Date.now(), title: '自訂職稱', name: '' }] }}));
   const removeClientSignature = (index) => setLog(prev => { const newClientSigs = [...prev.signatures.client]; newClientSigs.splice(index, 1); return { ...prev, signatures: { ...prev.signatures, client: newClientSigs } }; });
   
-  // [NEW] Add Onsite Signature
   const addOnsiteSignature = () => setLog(prev => ({...prev, signatures: { ...prev.signatures, onsite: [...prev.signatures.onsite, { id: Date.now(), title: '自訂職稱', name: '' }] }}));
   const removeOnsiteSignature = (index) => setLog(prev => { const newOnsiteSigs = [...prev.signatures.onsite]; newOnsiteSigs.splice(index, 1); return { ...prev, signatures: { ...prev.signatures, onsite: newOnsiteSigs } }; });
 
@@ -705,9 +702,9 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                 <div className="pl-6 text-xs bg-gray-50 p-2 rounded">
                    <div className="flex items-center justify-between mb-1"><span>危害辨識及評估</span><div><label><input type="radio" checked={log.maternal_hazard_check} onChange={()=>setLog({...log, maternal_hazard_check:true})}/> 已完成</label> <label><input type="radio" checked={!log.maternal_hazard_check} onChange={()=>setLog({...log, maternal_hazard_check:false})}/> 未完成</label></div></div>
                    <div className="grid grid-cols-2 gap-1 mb-1">
-                      <div>妊娠中: <input className="border w-10" value={log.mat_pregnant} onChange={e=>setLog({...log, mat_pregnant:e.target.value})}/></div>
-                      <div>分娩後: <input className="border w-10" value={log.mat_postpartum} onChange={e=>setLog({...log, mat_postpartum:e.target.value})}/></div>
-                      <div>哺乳中: <input className="border w-10" value={log.mat_breastfeeding} onChange={e=>setLog({...log, mat_breastfeeding:e.target.value})}/></div>
+                      <div>妊娠中/收案人數: <input className="border w-10" value={log.mat_pregnant} onChange={e=>setLog({...log, mat_pregnant:e.target.value})}/></div>
+                      <div>分娩後/收案人數: <input className="border w-10" value={log.mat_postpartum} onChange={e=>setLog({...log, mat_postpartum:e.target.value})}/></div>
+                      <div>哺乳中/收案人數: <input className="border w-10" value={log.mat_breastfeeding} onChange={e=>setLog({...log, mat_breastfeeding:e.target.value})}/></div>
                    </div>
                    <div>醫師面談: 需 <input className="border w-10" value={log.mat_doc_need} onChange={e=>handleMatDocCalc('mat_doc_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_doc_done} onChange={e=>handleMatDocCalc('mat_doc_done',e.target.value)}/> / 未 {log.mat_doc_not}</div>
                    <div>護理指導: 需 <input className="border w-10" value={log.mat_nurse_need} onChange={e=>handleMatNurseCalc('mat_nurse_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_nurse_done} onChange={e=>handleMatNurseCalc('mat_nurse_done',e.target.value)}/> / 未 {log.mat_nurse_not}</div>
@@ -979,6 +976,8 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                      <strong>(4) 母性健康保護: </strong> 
                      危害評估({selectedLog.maternal_hazard_check?'已完成':'未完成'}) / 
                      妊娠中{selectedLog.mat_pregnant}人 / 
+                     分娩後{selectedLog.mat_postpartum}人 /
+                     哺乳中{selectedLog.mat_breastfeeding}人 /
                      醫師面談(需{selectedLog.mat_doc_need}/已{selectedLog.mat_doc_done}/未{selectedLog.mat_doc_not}) / 
                      護理指導(需{selectedLog.mat_nurse_need}/已{selectedLog.mat_nurse_done}/未{selectedLog.mat_nurse_not})
                  </div>
