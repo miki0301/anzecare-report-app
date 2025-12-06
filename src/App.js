@@ -88,21 +88,28 @@ const calculateRegulationFrequency = (category, count, standard = 'rule4') => {
   return { nurse, doctor, desc };
 };
 
-// --- Helper: Deep Sanitize Object for Firebase ---
+// --- Helper: Robust Deep Sanitize ---
+// This ensures NO undefined values ever reach Firestore
 const sanitizeData = (data) => {
-  if (data === undefined) return null;
-  if (data === null) return null;
+  // 1. Handle Primitives
+  if (data === undefined) return ""; // Convert undefined to empty string
+  if (data === null) return "";      // Convert null to empty string
+  if (typeof data !== 'object') return data; // Numbers, Strings, Booleans
+
+  // 2. Handle Arrays
   if (Array.isArray(data)) {
     return data.map(item => sanitizeData(item));
   }
-  if (typeof data === 'object' && !(data instanceof Date)) {
-    const newData = {};
-    Object.keys(data).forEach(key => {
-      newData[key] = sanitizeData(data[key]);
-    });
-    return newData;
-  }
-  return data;
+
+  // 3. Handle Objects
+  const newData = {};
+  Object.keys(data).forEach(key => {
+    const value = data[key];
+    // Skip functions or undefined keys
+    if (typeof value === 'function') return;
+    newData[key] = sanitizeData(value);
+  });
+  return newData;
 };
 
 // --- Components ---
@@ -453,6 +460,7 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
         let newVersion = log.version;
         if (initialData && initialData.status === 'completed') newVersion = initialData.version + 1;
 
+        // Deep sanitize to remove undefined
         const dataToSave = sanitizeData({
             ...log,
             clientName, 
@@ -541,12 +549,12 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
       <div className="border p-4 rounded-lg bg-gray-50">
         <h3 className="font-bold border-b pb-2 mb-3">二、作業場所與勞動條件概況</h3>
         <div className="space-y-2 mb-3">
-            <div><label className="text-sm">工作流程(製程)</label><textarea className="w-full border p-2 rounded h-24" value={log.process} onChange={e=>setLog({...log, process: e.target.value})}/></div>
-            <div><label className="text-sm">工作型態與時間</label><textarea className="w-full border p-2 rounded h-24" value={log.work_type_time} onChange={e=>setLog({...log, work_type_time: e.target.value})}/></div>
+            <div><label className="text-sm">工作流程(製程)</label><textarea className="w-full border p-2 rounded h-20" value={log.process} onChange={e=>setLog({...log, process: e.target.value})}/></div>
+            <div><label className="text-sm">工作型態與時間</label><textarea className="w-full border p-2 rounded h-20" value={log.work_type_time} onChange={e=>setLog({...log, work_type_time: e.target.value})}/></div>
         </div>
         <div className="bg-white p-3 rounded border">
             <h4 className="text-sm font-bold mb-2">初步危害辨識表</h4>
-            <div className="flex space-x-2 mb-2"><input placeholder="工作類型" className="border p-1 w-1/4" value={newHazard.type} onChange={e=>setNewHazard({...newHazard, type: e.target.value})}/><input placeholder="職務" className="border p-1 w-1/4" value={newHazard.job} onChange={e=>setNewHazard({...newHazard, job: e.target.value})}/><textarea placeholder="初步危害辨識" className="border p-1 w-1/2 h-10" value={newHazard.desc} onChange={e=>setNewHazard({...newHazard, desc: e.target.value})}/><button type="button" onClick={addHazard}><Plus size={16}/></button></div>
+            <div className="flex space-x-2 mb-2"><input placeholder="工作類型" className="border p-1 w-1/3" value={newHazard.type} onChange={e=>setNewHazard({...newHazard, type: e.target.value})}/><input placeholder="職務" className="border p-1 w-1/3" value={newHazard.job} onChange={e=>setNewHazard({...newHazard, job: e.target.value})}/><textarea placeholder="初步危害辨識" className="border p-1 w-1/3 h-10" value={newHazard.desc} onChange={e=>setNewHazard({...newHazard, desc: e.target.value})}/><button type="button" onClick={addHazard}><Plus size={16}/></button></div>
             {log.hazards.map((h, i) => (<div key={i} className="flex justify-between bg-gray-100 p-2 mb-1 rounded text-sm"><span>{h.type} - {h.job} - {h.desc}</span><button type="button" onClick={()=>removeHazard(i)}><X size={12}/></button></div>))}
         </div>
       </div>
@@ -681,8 +689,8 @@ const ServiceLogger = ({ staff, clients, onSaveLog, role, userProfile, initialDa
                       <div>分娩後/收案人數: <input className="border w-10" value={log.mat_postpartum} onChange={e=>setLog({...log, mat_postpartum:e.target.value})}/></div>
                       <div>哺乳中/收案人數: <input className="border w-10" value={log.mat_breastfeeding} onChange={e=>setLog({...log, mat_breastfeeding:e.target.value})}/></div>
                    </div>
-                   <div>醫師面談: 需面談 <input className="border w-10" value={log.mat_doc_need} onChange={e=>handleMatDocCalc('mat_doc_need',e.target.value)}/> 人/ 已面談 <input className="border w-10" value={log.mat_doc_done} onChange={e=>handleMatDocCalc('mat_doc_done',e.target.value)}/> 人/ 未面談 {log.mat_doc_not} 人</div>
-                   <div>護理指導: 需面談 <input className="border w-10" value={log.mat_nurse_need} onChange={e=>handleMatNurseCalc('mat_nurse_need',e.target.value)}/> 人/ 已面談 <input className="border w-10" value={log.mat_nurse_done} onChange={e=>handleMatNurseCalc('mat_nurse_done',e.target.value)}/> 人/ 未面談 {log.mat_nurse_not} 人</div>
+                   <div>醫師面談: 需 <input className="border w-10" value={log.mat_doc_need} onChange={e=>handleMatDocCalc('mat_doc_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_doc_done} onChange={e=>handleMatDocCalc('mat_doc_done',e.target.value)}/> / 未 {log.mat_doc_not}</div>
+                   <div>護理指導: 需 <input className="border w-10" value={log.mat_nurse_need} onChange={e=>handleMatNurseCalc('mat_nurse_need',e.target.value)}/> / 已 <input className="border w-10" value={log.mat_nurse_done} onChange={e=>handleMatNurseCalc('mat_nurse_done',e.target.value)}/> / 未 {log.mat_nurse_not}</div>
                 </div>
               )}
             </div>
@@ -827,14 +835,10 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                 <div><strong>工作型態與時間:</strong> <div className="whitespace-pre-wrap">{selectedLog.work_type_time}</div></div>
             </div>
             <table className="w-full border-collapse border border-black text-center">
-                <thead><tr className="bg-gray-100"><th className="border border-black p-1 w-1/6">工作類型</th><th className="border border-black p-1 w-1/6">職務</th><th className="border border-black p-1 w-2/3">初步危害辨識</th></tr></thead>
+                <thead><tr className="bg-gray-100"><th className="border border-black p-1">工作類型</th><th className="border border-black p-1">職務</th><th className="border border-black p-1">初步危害辨識</th></tr></thead>
                 <tbody>
                     {selectedLog.hazards && selectedLog.hazards.length > 0 ? selectedLog.hazards.map((h, i) => (
-                        <tr key={i}>
-                            <td className="border border-black p-1">{h.type}</td>
-                            <td className="border border-black p-1">{h.job}</td>
-                            <td className="border border-black p-1 text-left whitespace-pre-wrap">{h.desc}</td>
-                        </tr>
+                        <tr key={i}><td className="border border-black p-1">{h.type}</td><td className="border border-black p-1">{h.job}</td><td className="border border-black p-1 text-left whitespace-pre-wrap">{h.desc}</td></tr>
                     )) : <tr><td colSpan="3" className="border border-black p-1 h-8"></td></tr>}
                 </tbody>
             </table>
@@ -959,8 +963,8 @@ const ReportView = ({ logs, onDelete, onEdit, role }) => {
                      妊娠中/收案人數 {selectedLog.mat_pregnant} / 
                      分娩後/收案人數 {selectedLog.mat_postpartum} /
                      哺乳中/收案人數 {selectedLog.mat_breastfeeding} /
-                     醫師面談(需面談{selectedLog.mat_doc_need}人/已面談{selectedLog.mat_doc_done}人/未面談{selectedLog.mat_doc_not}人) / 
-                     護理指導(需面談{selectedLog.mat_nurse_need}人/已面談{selectedLog.mat_nurse_done}人/未面談{selectedLog.mat_nurse_not}人)
+                     醫師面談(需{selectedLog.mat_doc_need}/已{selectedLog.mat_doc_done}/未{selectedLog.mat_doc_not}) / 
+                     護理指導(需{selectedLog.mat_nurse_need}/已{selectedLog.mat_nurse_done}/未{selectedLog.mat_nurse_not})
                  </div>
              )}
              {selectedLog.show_tracking_5 && (
