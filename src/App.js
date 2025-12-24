@@ -31,6 +31,7 @@ import {
 } from 'firebase/firestore';
 
 // --- Firebase Configuration ---
+// Using JSON.parse for the environment variable which is safer in this context
 const firebaseConfig = JSON.parse(__firebase_config);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -70,92 +71,49 @@ const INITIAL_KNOWLEDGE_BASE = [
 ];
 
 // --- Utils & Logic ---
+// ... (保留 INDUSTRY_DATA, FREQ_OPTIONS, calculateRegulationFrequency)
 
 const INDUSTRY_DATA = {
-  cat1: [
-    "礦業及土石採取業", "製造業-紡織業", "製造業-木竹製品及非金屬家具", "製造業-造紙、紙製品",
-    "製造業-化學材料", "製造業-化學品", "製造業-石油及煤製品", "製造業-橡膠製品",
-    "製造業-塑膠製品", "製造業-水泥及水泥製品", "製造業-金屬基本工業", "製造業-金屬製品",
-    "製造業-機械設備製造修配", "製造業-電力機械器材", "製造業-運輸工具", "製造業-電子/電池",
-    "製造業-食品", "製造業-飲料及菸草", "製造業-皮革毛皮", "製造業-電腦光學", "製造業-電子零組件",
-    "製造業-其他非金屬", "營造業", "水電燃氣業", "運輸倉儲通信業", "機械設備租賃", "環境衛生服務",
-    "洗染業", "批發零售(建材/燃料)", "其他服務(清潔/病媒)", "公共行政(營造/廢棄物)", "國防生產", "指定事業"
-  ],
-  cat2: [
-    "農林漁牧", "鹽業", "製造業-陶瓷", "製造業-玻璃", "製造業-精密器械", "製造業-雜項",
-    "製造業-成衣", "製造業-印刷出版", "製造業-藥品", "製造業-其他", "自來水供應",
-    "電信郵政", "餐旅業", "機械租賃(事務/其他)", "醫療保健", "修理服務", "批發零售(家電/機械/綜合)",
-    "不動產", "化學原料輸入輸出", "運輸工具租賃", "專業科學(建築/廣告/檢測)", "保全/汽車美容/浴室",
-    "停車場", "學術研究/實驗室", "公共行政(工程)", "工程顧問(非破壞)", "零售化學(裝卸)",
-    "批發零售(堆高機/冷凍)", "休閒服務", "動物園", "國防(醫院/研究)", "零售燃料/化學", "大專校院工程"
-  ],
-  cat3: [
-    "其他 (上述指定以外之事業，如一般辦公室、金融業等)"
-  ]
+  cat1: ["礦業及土石採取業", "製造業-紡織業", "製造業-木竹製品", "製造業-造紙", "製造業-化學材料", "製造業-化學品", "製造業-石油煤製品", "製造業-橡膠", "製造業-塑膠", "製造業-水泥", "製造業-金屬基本", "製造業-金屬製品", "製造業-機械設備", "製造業-電力機械", "製造業-運輸工具", "製造業-電子/電池", "製造業-食品", "製造業-飲料菸草", "製造業-皮革毛皮", "製造業-電腦光學", "製造業-電子零組件", "製造業-其他非金屬", "營造業", "水電燃氣業", "運輸倉儲通信", "機械租賃(生產)", "環境衛生", "洗染業", "批發零售(建材燃料)", "其他服務(清潔病媒)", "公共行政(營造廢棄)", "國防生產", "指定事業"],
+  cat2: ["農林漁牧", "鹽業", "製造業-陶瓷", "製造業-玻璃", "製造業-精密器械", "製造業-雜項", "製造業-成衣", "製造業-印刷出版", "製造業-藥品", "製造業-其他", "自來水供應", "電信郵政", "餐旅業", "機械租賃(事務其他)", "醫療保健", "修理服務", "批發零售(家電機械綜合)", "不動產", "化學原料輸入輸出", "運輸工具租賃", "專業科學(建築廣告檢測)", "保全汽車美容浴室", "停車場", "學術研究實驗室", "公共行政(工程)", "工程顧問(非破壞)", "零售化學(裝卸)", "批發零售(堆高機冷凍)", "休閒服務", "動物園", "國防(醫院研究)", "零售燃料化學", "大專校院工程"],
+  cat3: ["其他 (辦公室/金融等)"]
 };
 
 const FREQ_OPTIONS = {
-  nurse: [
-    "顧問諮詢 (未達50人)",
-    "1次/3個月", "1次/2個月", "1次/月", "2次/月", "3次/月", "4次/月", "6次/月",
-    "專職護理人員 (300人以上)"
-  ],
-  doctor: [
-    "顧問諮詢 (未達50人)",
-    "1次/年", "2次/年", "3次/年", "4次/年", "6次/年",
-    "1次/6個月", "1次/3個月", "1次/2個月", "1次/月", "3次/月", "6次/月", "9次/月", "12次/月", "15次/月", "18次/月"
-  ]
+  nurse: ["顧問諮詢", "1次/3個月", "1次/2個月", "1次/月", "2次/月", "3次/月", "4次/月", "6次/月", "專職護理人員"],
+  doctor: ["顧問諮詢", "1次/年", "2次/年", "3次/年", "4次/年", "6次/年", "1次/6個月", "1次/3個月", "1次/2個月", "1次/月", "3次/月", "6次/月", "9次/月", "12次/月"]
 };
 
 const calculateRegulationFrequency = (category, count, standard = 'rule4') => {
-  if (count < 50) return { nurse: "顧問諮詢 (未達50人)", doctor: "顧問諮詢 (未達50人)", desc: "未達50人門檻，建議採顧問服務" };
-
-  let nurse = "1次/月";
-  let doctor = "1次/年";
-  let desc = "";
-
+  if (count < 50) return { nurse: "顧問諮詢", doctor: "顧問諮詢", desc: "未達50人" };
+  let nurse = "1次/月", doctor = "1次/年", desc = "";
   if (standard === 'rule7') {
-    desc = `依據附表七 (第13條)，勞工${count}人`;
-    if (count >= 3000) {
-      doctor = "1次/2個月";
-      nurse = "1次/月";
-      desc += " (需僱用專職護理人員)";
-    } else if (count >= 1000) {
-      doctor = "1次/3個月";
-      nurse = "1次/月";
-    } else if (count >= 300) {
-      doctor = "1次/6個月";
-      nurse = "1次/2個月";
-    } else if (count >= 50) { 
-      doctor = "1次/年";
-      nurse = "1次/3個月";
-      if (count < 100) desc += " (註：50-99人且未具特別危害者不適用此表)";
-    }
+    desc = `第13條(附表七) ${count}人`;
+    if (count >= 3000) { doctor = "1次/2個月"; nurse = "1次/月"; }
+    else if (count >= 1000) { doctor = "1次/3個月"; nurse = "1次/月"; }
+    else if (count >= 300) { doctor = "1次/6個月"; nurse = "1次/2個月"; }
+    else if (count >= 50) { doctor = "1次/年"; nurse = "1次/3個月"; }
   } else {
-    desc = `依據附表四 (第4條)，勞工${count}人，屬第${category}類事業`;
-    // Nurse
-    if (count >= 300) nurse = "專職護理人員 (300人以上)";
-    else if (count >= 200) nurse = category === "1" ? "6次/月" : category === "2" ? "4次/月" : "3次/月";
-    else if (count >= 100) nurse = category === "1" ? "4次/月" : category === "2" ? "3次/月" : "2次/月";
+    desc = `第4條(附表四) 第${category}類 ${count}人`;
+    if (count >= 300) nurse = "專職";
+    else if (count >= 200) nurse = category==="1"?"6次/月":category==="2"?"4次/月":"3次/月";
+    else if (count >= 100) nurse = category==="1"?"4次/月":category==="2"?"3次/月":"2次/月";
     else nurse = "1次/月";
 
-    // Doctor
     if (count >= 6000) doctor = "18次/月";
-    else if (count >= 5000) doctor = category === "1" ? "15次/月" : category === "2" ? "9次/月" : "4次/月";
-    else if (count >= 4000) doctor = category === "1" ? "12次/月" : category === "2" ? "7次/月" : "3次/月";
-    else if (count >= 3000) doctor = category === "1" ? "9次/月" : category === "2" ? "5次/月" : "2次/月";
-    else if (count >= 2000) doctor = category === "1" ? "6次/月" : category === "2" ? "3次/月" : "1次/月";
-    else if (count >= 1000) doctor = category === "1" ? "3次/月" : category === "2" ? "1次/月" : "1次/2個月";
-    else if (count >= 300) doctor = category === "1" ? "1次/月" : category === "2" ? "1次/2個月" : "1次/3個月";
-    else if (count >= 200) doctor = category === "1" ? "6次/年" : category === "2" ? "4次/年" : "3次/年";
-    else if (count >= 100) doctor = category === "1" ? "4次/年" : category === "2" ? "3次/年" : "2次/年";
+    else if (count >= 3000) doctor = category==="1"?"9次/月":category==="2"?"5次/月":"2次/月";
+    else if (count >= 2000) doctor = category==="1"?"6次/月":category==="2"?"3次/月":"1次/月";
+    else if (count >= 1000) doctor = category==="1"?"3次/月":category==="2"?"1次/月":"1次/2個月";
+    else if (count >= 300) doctor = category==="1"?"1次/月":category==="2"?"1次/2個月":"1次/3個月";
+    else if (count >= 200) doctor = category==="1"?"6次/年":category==="2"?"4次/年":"3次/年";
+    else if (count >= 100) doctor = category==="1"?"4次/年":category==="2"?"3次/年":"2次/年";
     else doctor = "1次/年";
   }
-
   return { nurse, doctor, desc };
 };
 
-// --- Components ---
+
+// --- Sub-Components ---
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
@@ -452,7 +410,7 @@ const ServiceLogger = ({ staff, clients, onAddLog, role, userProfile, knowledgeB
       client: [
         { id: 'osh', title: '職業安全衛生管理人員', name: '' },
         { id: 'hr', title: '人力資源管理人員', name: '' },
-        { id: 'mgr', title: '部門名稱 / 主管職稱', name: '' }
+        { id: 'mgr', title: '部門主管', name: '' }
       ]
     }
   });
